@@ -1,19 +1,56 @@
 import socket
 import sys
-from struct import pack
+import time
+from random import randint
+from struct import pack, unpack, calcsize
 
 
 
 PORT = 80
-HOST = ''
+LOCAL_HOST = ''
+REMOTE_HOST = ''
 
 # Flags
-FLAGS = {'SYN': 2, 'SYN_ACK': 18, 'ACK': 16, 'PSH_ACK': 24, 'FIN': 1, 'FIN_ACK': 17}
+FLAGS = {'SYN': 2, 'ACK': 16, 'PSH_ACK': 24, 'FIN': 1, 'FIN_ACK': 17}
+MAX_SIZE = 65535
 
 send_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
 receive_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
+tcp_sequence = 0
+tcp_ack_sequence = 0
+
+
+class TCP_Response(object):
+    # tcp_src = ''
+    # tcp_dst = ''
+    # tcp_sequence = 0
+    # tcp_ack_sequence = 0
+    # tcp_check = 0
+    # tcp_flag =
+    # tcp_data =
+
+    def __init__(self, tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_check, tcp_flag, tcp_data):
+        self.tcp_src = tcp_src
+        self.tcp_dst = tcp_dst
+        self.tcp_sequence = tcp_sequence
+        self.tcp_ack_sequence = tcp_ack_sequence
+        self.tcp_check = tcp_check
+        self.tcp_flag = tcp_flag
+        self.tcp_data = tcp_data
+
+
+# class IP_Response(object):
+#     ip_src = ''
+#     ip_dst = ''
+#     ip_check = 0
+#
+#     def __init__(self, ip_src, ip_dst, ip_check):
+#         self.ip_src = ip_src
+#         self.ip_dst = ip_dst
+#         self.ip_check = ip_check
 
 # checksum functions needed for calculation checksum
+# TODO: REFACTOR TO AVOID PLAGIARISM
 def checksum(msg):
     s = 0
 
@@ -22,21 +59,23 @@ def checksum(msg):
         w = ord(msg[i]) + (ord(msg[i + 1]) << 8)
         s = s + w
 
-    s = (s >> 16) + (s & 0xffff);
-    s = s + (s >> 16);
+    s = (s >> 16) + (s & 0xffff)
+    s = s + (s >> 16)
 
     # complement and mask to 4 byte short
     s = ~s & 0xffff
 
     return s
 
+#TODO
 def extract_addr(host):
     #return src_addr, dst_addr
     pass
 
 
 # get from the tutorial
-def create_tcp_header(src_addr, dst_addr, flags):
+# TODO: REFACTOR TO AVOID PLAGIARISM
+def create_tcp_header(src_addr, dst_addr, data, flags):
     tcp_source = 1234  # source port
     tcp_dest = PORT  # destination port
     tcp_seq = 454
@@ -56,10 +95,10 @@ def create_tcp_header(src_addr, dst_addr, flags):
     dest_address = socket.inet_aton(dst_addr)
     placeholder = 0
     protocol = socket.IPPROTO_TCP
-    tcp_length = len(tcp_header)
+    tcp_length = len(tcp_header) + len(data)
 
     psh = pack('!4s4sBBH', source_address, dest_address, placeholder, protocol, tcp_length)
-    psh = psh + tcp_header
+    psh = psh + tcp_header + data
 
     tcp_check = checksum(psh)
     # print tcp_checksum
@@ -69,7 +108,8 @@ def create_tcp_header(src_addr, dst_addr, flags):
                       tcp_window) + pack('H', tcp_check) + pack('!H', tcp_urg_ptr)
     return tcp_header
 
-# get from tutorial
+# get from tutorial,
+# TODO: REFACTOR TO AVOID PLAGIARISM
 def create_ip_header(src_addr, dst_addr):
     ip_ihl = 5
     ip_ver = 4
@@ -94,62 +134,159 @@ def create_ip_header(src_addr, dst_addr):
 
 
 
-
-
-
-
-
-
-
-
+#TODO
 def extract_url(url):
     pass
 
 
 
-def create_tcp_layer():
-    pass
 
+def create_packet(src_addr, dst_addr, data, flags):
+    ip_header = create_ip_header(src_addr, dst_addr)
+    tcp_header = create_tcp_header(src_addr, dst_addr, data, flags)
 
-def process_data(browser_data):
-    pass
-
-
-def establish_tcp_connection(tcp_layer, host, PORT):
-    pass
-
-
-def creat_packet(ip_header, tcp_header, data=''):
     return ip_header + tcp_header + data
 
+#TODO
+def filter_TCP_response(received_tcp_response):
+    if not received_tcp_response:
+        return False
+    return True
+    #received_tcp_response
 
-def three_way_handshake(packet):
 
-    pass
+#TODO: done
+# https://www.cs.miami.edu/home/burt/learning/Csc524.092/notes/ip_example.html
+def get_ip_response(received_packet):
+    # Get IP header list
+    IP_header_buffer = received_packet[:20]
+    IP_header_list = unpack('!BBHHHBBH4s4s', IP_header_buffer)
+
+    # Retrieve IP source and IP destination
+    IP_src = socket.inet_ntoa(IP_header_list[-2])
+    IP_dst = socket.inet_ntoa(IP_header_list[-1])
+
+    # Calculate IP header size
+    IP_header_size = calcsize('!BBHHHBBH4s4s')
+
+    # Retrieve IP data
+    IP_data = received_packet[IP_header_size:IP_header_list[2]]
+
+    # Perform check sum
+    IP_header = received_packet[:IP_header_size]
+    IP_check_sum = checksum(IP_header)
+
+
+    return IP_src, IP_dst, IP_data, IP_check_sum
+
+
+
+#TODO
+# https://www.quora.com/What-is-TCP-checksum
+def get_tcp_response(ip_data):
+    '''
+    self.tcp_src = tcp_src
+    self.tcp_dst = tcp_dst
+    self.tcp_sequence = tcp_sequence
+    self.tcp_ack_sequence = tcp_ack_sequence
+    self.tcp_check = tcp_check
+    self.tcp_flag = tcp_flag
+    self.tcp_data = tcp_data
+    '''
+    # Get TCP header list
+    tcp_header_size = calcsize('!HHLLBBH')
+    tcp_header_buffer = ip_data[:tcp_header_size]
+    tcp_header_list = unpack('!HHLLBBH', tcp_header_buffer)
+
+    # Retrieve fields for TCP_Response object
+    tcp_src = tcp_header_list[0]
+    tcp_dst = tcp_header_list[1]
+    tcp_sequence = tcp_header_list[2]
+    tcp_ack_sequence = tcp_header_list[3]
+
+    # tcp_check
+    src_addr = socket.inet_aton(LOCAL_HOST)
+    dest_addr = socket.inet_aton(REMOTE_HOST)
+    placeholder = 0
+    protocol = socket.IPPROTO_TCP
+    tcp_length = len(tcp_header)
+    psh = pack('!4s4sBBH', source_address, dest_address, placeholder, protocol, tcp_length)
+    psh = psh + tcp_header
+    tcp_check = checksum(psh)
+
+    tcp_flag = tcp_header_list[5]
+    tcp_data = ip_data[tcp_header_size:]
+
+
+
+
+
+
+#TODO
+def is_valid_tcp_response(received_tcp_response):
+    return not received_tcp_response.
+
+
+def is_valid_ip_response(ip_src, ip_dst, ip_checksum):
+    return not ip_checksum and ip_src == REMOTE_HOST and ip_dst == LOCAL_HOST
+
+
+def receive():
+    receive_socket.settimeout(60)
+    try:
+        while True:
+            received_packet = receive_socket.recv(MAX_SIZE)
+            # TODO B
+            ip_src, ip_dst, ip_data, ip_checksum = get_ip_response(received_packet)
+            if is_valid_ip_response(ip_src, ip_dst, ip_checksum):
+                #TODO B
+                received_tcp_response = get_tcp_response(ip_data)
+                if is_valid_tcp_response(received_tcp_response):
+                    return received_tcp_response
+    except socket.timeout:
+        print "Time out when getting packet"
+        return None
+
+
+
+
+def acked():
+    global tcp_sequence, tcp_ack_sequence
+    current_time = time.time()
+    while time.time() - current_time < 60:
+        received_tcp = receive()
+        if filter_TCP_response(received_tcp):
+            tcp_sequence = received_tcp.tcp_ack_sequence
+            tcp_ack_sequence = received_tcp.tcp_sequence + 1
+            return True
+
+    return False
 
 
 def establish_connection(src_addr, dst_addr):
-    ip_header = create_ip_header(src_addr, dst_addr)
-    tcp_header = create_tcp_header(src_addr, dst_addr, FLAGS['SYN'])
-    packet = creat_packet(ip_header, tcp_header)
+    global tcp_sequence
+    syn_packet = create_packet(src_addr, dst_addr, '', FLAGS['SYN'])
+    tcp_sequence = randint(0, int("inf"))
+    send_socket.sendto(syn_packet, (REMOTE_HOST, PORT))
 
+    if not acked():
+        print "Failed to establish connection!"
+        sys.exit(1)
 
+    ack_packet = create_packet(src_addr, dst_addr, FLAGS['ACK'])
+    send_socket.sendto(ack_packet, (REMOTE_HOST, PORT))
 
-
+#TODO
 def run(url):
 
     path, host = extract_url(url)
     HOST = host
     request = "GET " + path + " HTTP/1.1\r\n" + "Host: " + host + "\r\n\r\n"
 
-
-
     src_addr, dst_addr = extract_addr(HOST)
 
-
-
     establish_connection(src_addr, dst_addr)
-    three_way_handshake(packet)
+
 
 
 
