@@ -29,11 +29,12 @@ class TCP_Response(object):
     # tcp_flag =
     # tcp_data =
 
-    def __init__(self, tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_check, tcp_flag, tcp_data):
+    def __init__(self, tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_doff, tcp_check, tcp_flag, tcp_data):
         self.tcp_src = tcp_src
         self.tcp_dst = tcp_dst
         self.tcp_sequence = tcp_sequence
         self.tcp_ack_sequence = tcp_ack_sequence
+        self.tcp_doff = tcp_doff
         self.tcp_check = tcp_check
         self.tcp_flag = tcp_flag
         self.tcp_data = tcp_data
@@ -189,6 +190,7 @@ def get_tcp_response(ip_data):
     self.tcp_dst = tcp_dst
     self.tcp_sequence = tcp_sequence
     self.tcp_ack_sequence = tcp_ack_sequence
+    self.tcp_doff = tcp_doff
     self.tcp_check = tcp_check
     self.tcp_flag = tcp_flag
     self.tcp_data = tcp_data
@@ -203,19 +205,26 @@ def get_tcp_response(ip_data):
     tcp_dst = tcp_header_list[1]
     tcp_sequence = tcp_header_list[2]
     tcp_ack_sequence = tcp_header_list[3]
+    tcp_doff = tcp_header_list[4] >> 4
+    if tcp_doff > 5:
+        option_size = (tcp_doff - 5) * 4
+        tcp_header_size += option_size
 
-    # tcp_check
+    # Get tcp_check
     src_addr = socket.inet_aton(LOCAL_HOST)
     dest_addr = socket.inet_aton(REMOTE_HOST)
     placeholder = 0
-    protocol = socket.IPPROTO_TCP
-    tcp_length = len(tcp_header)
-    psh = pack('!4s4sBBH', source_address, dest_address, placeholder, protocol, tcp_length)
-    psh = psh + tcp_header
-    tcp_check = checksum(psh)
+    protocol_from_ip = socket.IPPROTO_TCP
+    tcp_segment_length = len(ip_data)
+    pseudo_header = pack('!4s4sBBH', src_addr, dest_addr, placeholder, protocol_from_ip, tcp_segment_length)
+    pseudo_header = pseudo_header + ip_data
+    tcp_check = checksum(pseudo_header)
 
     tcp_flag = tcp_header_list[5]
     tcp_data = ip_data[tcp_header_size:]
+
+    # Return TCP_Response object
+    return TCP_Response(tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_flag, tcp_check, tcp_data)
 
 
 
