@@ -384,11 +384,13 @@ def receive():
         packet_flags = packet.tcp_flag
         packet_tcp_sequence = packet.tcp_sequence
         packet_data = packet.tcp_data
+        print "data: ", packet_data
 
         if packet_flags & FLAGS['ACK'] and packet_tcp_sequence not in received_packets:
             received_packets[packet_tcp_sequence] = packet_data
             tcp_ack_sequence += packet_tcp_sequence + len(packet_data)
             print "putting data in ..."
+            print received_packets
             if packet_flags & FLAGS['FIN']:
                 print "Finish!"
                 tcp_ack_sequence += 1
