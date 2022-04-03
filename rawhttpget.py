@@ -100,15 +100,15 @@ def create_tcp_header(src_addr, dst_addr, data, flags):
     tcp_flags = flags
 
     # the ! in the pack format string means network order
-    tcp_header = pack('!HHLLBBHHH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags, tcp_window,
-                      tcp_check, tcp_urg_ptr)
+    try:
+        tcp_header = pack('!HHLLBBHHH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags, tcp_window, tcp_check, tcp_urg_ptr)
+    except:
+        print tcp_check, tcp_urg_ptr
+        sys.exit(1)
     source_address = socket.inet_aton(src_addr)
     dest_address = socket.inet_aton(dst_addr)
     placeholder = 0
     protocol = socket.IPPROTO_TCP
-
-    # if len(data) % 2 != 0:
-    #     data += ' '
 
     tcp_length = len(tcp_header) + len(data)
 
@@ -295,7 +295,7 @@ def acked():
 def established_connection(src_addr, dst_addr):
     #print REMOTE_HOST, REMOTE_PORT
     global tcp_sequence
-    tcp_sequence = randint(0, MAX_SIZE)
+    tcp_sequence = randint(0, 5000)
     syn_packet = create_packet(src_addr, dst_addr, '', FLAGS['SYN'])
     #print syn_packet
     send_socket.sendto(syn_packet, (REMOTE_HOST, REMOTE_PORT))
