@@ -62,6 +62,8 @@ class TCP_Response(object):
 # checksum functions needed for calculation checksum
 # TODO: REFACTOR TO AVOID PLAGIARISM? KB DC CHUA
 def checksum(message):
+    if len(message) % 2 == 1:
+        message = message + pack('B', 0)
     _sum = 0
     for i in range(0, len(message), 2):
         w = ord(message[i]) + (ord(message[i + 1]) << 8)
@@ -113,6 +115,7 @@ def create_tcp_header(src_addr, dst_addr, data, flags):
     psh = pack('!4s4sBBH', source_address, dest_address, placeholder, protocol, tcp_length)
     psh = psh + tcp_header + data
 
+    #print data
     tcp_check = checksum(psh)
     # print tcp_checksum
 
@@ -334,7 +337,7 @@ def received():
     current_time = time.time()
 
     #Time out after 60s for getting packet
-    while time.time() - current_time < 60:
+    while time.time() - current_time < 10:
         received_tcp = receive_tcp()
         if not received_tcp:
             print "Not received any packet"
@@ -359,7 +362,7 @@ def send(packet):
                 sys.exit(1)
             sys.exit(0)
         send_socket.sendto(packet, (REMOTE_HOST, REMOTE_PORT))
-    print "Received data"
+    print "Sent data"
 
 
 def receive():
@@ -391,6 +394,7 @@ def receive():
             ack_packet = create_packet(LOCAL_HOST, REMOTE_HOST, FLAGS['ACK'])
             send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
 
+    print "Received data"
     return received_packets
 
 
@@ -438,6 +442,7 @@ def run(url):
     if established_connection(LOCAL_HOST, REMOTE_HOST):
         request = "GET " + path + " HTTP/1.1\r\n" + "Host: " + host + "\r\n\r\n"
         buffer_length = len(request)
+        #print "request", request
         packet = create_packet(LOCAL_HOST, REMOTE_HOST, request, FLAGS['PSH_ACK'])
         send(packet)
         packets = receive()
@@ -448,8 +453,8 @@ def run(url):
         export_file(path, body)
     else:
         print "Failed to establish connection!"
-        send_socket.close()
-        receive_socket.close()
+        #send_socket.close()
+        #receive_socket.close()
         sys.exit(1)
 
 
