@@ -74,8 +74,8 @@ def checksum(message):
 #https://www.delftstack.com/howto/python/get-ip-address-python/
 def extract_addr(host):
     #src_addr = socket.gethostbyname(socket.gethostname())
-    src_addr = '172.27.123.30'
-    print host
+    src_addr = '172.27.120.95' #TODO
+    #print host
     dst_addr = socket.gethostbyname(host)
     return src_addr, dst_addr
 
@@ -88,6 +88,7 @@ def create_tcp_header(src_addr, dst_addr, data, flags):
     tcp_dest = REMOTE_PORT  # destination port
     tcp_seq = tcp_sequence
     tcp_ack_seq = tcp_ack_sequence
+    #print "tcp_ack_seq in tcp", tcp_ack_sequence
     tcp_doff = 5  # 4 bit field, size of tcp header, 5 * 4 = 20 bytes
     tcp_window = socket.htons(5840)  # maximum allowed window size
     tcp_check = 0
@@ -165,13 +166,19 @@ def create_packet(src_addr, dst_addr, data, flags):
 
 def filter_tcp_response(received_tcp_response):
     if not received_tcp_response:
+        #print "empty"
         return False
-
+    #print "response", received_tcp_response
     received_tcp_flags = received_tcp_response.tcp_flag
+    #print "flag", received_tcp_flags
     received_tcp_ack_sequence = received_tcp_response.tcp_ack_sequence
-    if not (received_tcp_flags & FLAGS['ACK']) or received_tcp_ack_sequence < tcp_sequence + 1:
+    #print "ack_sequence", received_tcp_ack_sequence
+    #print "tcp_sequence", tcp_sequence
+    if (not (received_tcp_flags & FLAGS['ACK'])) or received_tcp_ack_sequence < tcp_sequence + 1:
+        #print "not tcp acked"
         return False
 
+    #sys.exit(1)
     return True
 
 
@@ -246,18 +253,19 @@ def is_valid_ip_response(ip_src, ip_dst, ip_checksum):
 
 def receive_tcp():
     receive_socket.settimeout(5)
-    print "here0"
-    print tcp_sequence
+    #print "start receive"
+    #print tcp_sequence
     try:
         while True:
             received_packet = receive_socket.recv(MAX_SIZE)
-            print "here1"
+            #print "received packet"
             ip_src, ip_dst, ip_data, ip_checksum = get_ip_response(received_packet)
-            print ip_src, ip_dst, ip_data, ip_checksum
+            #print ip_src, ip_dst, ip_data, ip_checksum
             if is_valid_ip_response(ip_src, ip_dst, ip_checksum):
-                print "here2"
+                #print "valid ip"
                 received_tcp_response = get_tcp_response(ip_data)
                 if is_valid_tcp_response(received_tcp_response):
+                    #print "valid tcp"
                     return received_tcp_response
     except socket.timeout:
         print "Time out when getting packet"
@@ -271,6 +279,7 @@ def acked():
     while time.time() - current_time < 10:
         received_tcp = receive_tcp()
         if filter_tcp_response(received_tcp):
+            #print "acked"
             tcp_sequence = received_tcp.tcp_ack_sequence
             tcp_ack_sequence = received_tcp.tcp_sequence + 1
             return True
@@ -282,9 +291,9 @@ def acked():
 def established_connection(src_addr, dst_addr):
     #print REMOTE_HOST, REMOTE_PORT
     global tcp_sequence
-    syn_packet = create_packet(src_addr, dst_addr, '', FLAGS['SYN'])
     tcp_sequence = randint(0, MAX_SIZE)
-    print syn_packet
+    syn_packet = create_packet(src_addr, dst_addr, '', FLAGS['SYN'])
+    #print syn_packet
     send_socket.sendto(syn_packet, (REMOTE_HOST, REMOTE_PORT))
 
     if not acked():
@@ -292,9 +301,9 @@ def established_connection(src_addr, dst_addr):
         return False
 
 
-    ack_packet = create_packet(src_addr, dst_addr, FLAGS['ACK'])
+    ack_packet = create_packet(src_addr, dst_addr, '', FLAGS['ACK'])
     send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
-    print "Done 3way handshake"
+    print "Done 3way handshake!"
     return True
 
 def closed_connection():
