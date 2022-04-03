@@ -62,16 +62,31 @@ class TCP_Response(object):
 # checksum functions needed for calculation checksum
 # TODO: REFACTOR TO AVOID PLAGIARISM? KB DC CHUA
 def checksum(message):
-    if len(message) % 2 == 1:
-        message = message + pack('B', 0)
-    _sum = 0
+    # if len(message) % 2 == 1:
+    #     message = message + pack('B', 0)
+    # _sum = 0
+    # for i in range(0, len(message), 2):
+    #     w = ord(message[i]) + (ord(message[i + 1]) << 8)
+    #     _sum += w
+    # _sum = (_sum >> 16) + (_sum & 0xffff)
+    # _sum += (_sum >> 16)
+    # _sum = ~_sum & 0xffff
+    # return _sum
+
+    s = 0
     for i in range(0, len(message), 2):
-        w = ord(message[i]) + (ord(message[i + 1]) << 8)
-        _sum += w
-    _sum = (_sum >> 16) + (_sum & 0xffff)
-    _sum += (_sum >> 16)
-    _sum = ~_sum & 0xffff
-    return _sum
+        if i + 1 <= len(message) - 1:
+            w = ord(message[i]) + (ord(message[i + 1]) << 8)
+        else:
+            w = ord(message[i])
+
+        s = s + w
+
+    s = (s >> 16) + (s & 0xffff);
+    s = s + (s >> 16);
+    s = ~s & 0xffff
+
+    return s
 
 #https://www.delftstack.com/howto/python/get-ip-address-python/
 def extract_addr(host):
@@ -131,7 +146,8 @@ def create_ip_header(src_addr, dst_addr):
     ip_ver = 4
     ip_tos = 0
     ip_tot_len = 0  # kernel will fill the correct total length
-    ip_id = 54321  # Id of this packet
+    #ip_id = 54321  # Id of this packet
+    ip_id = randint(0, 65535)
     ip_frag_off = 0
     ip_ttl = 255
     ip_proto = socket.IPPROTO_TCP
@@ -217,9 +233,9 @@ def get_ip_response(received_packet):
 # https://en.wikipedia.org/wiki/Transmission_Control_Protocol
 def get_tcp_response(ip_data):
     # Get TCP header list
-    tcp_header_size = calcsize('!HHLLBBH')
+    tcp_header_size = calcsize('!HHLLBBHHH')
     tcp_header_buffer = ip_data[:tcp_header_size]
-    tcp_header_list = unpack('!HHLLBBH', tcp_header_buffer)
+    tcp_header_list = unpack('!HHLLBBHHH', tcp_header_buffer)
     # Retrieve fields for TCP_Response object
     tcp_src = tcp_header_list[0]
     tcp_dst = tcp_header_list[1]
@@ -378,19 +394,19 @@ def receive():
             #     sys.exit(1)
             sys.exit(1)
         print "receiving packets ..."
-
-
-        print "here"
+        #print "here"
         packet_flags = packet.tcp_flag
         packet_tcp_sequence = packet.tcp_sequence
         packet_data = packet.tcp_data
-        print "data: ", packet_data
+        print "packet_flags ", packet_flags
+        print "sequence ", packet_tcp_sequence
+        #print "data: ", packet_data
 
         if packet_flags & FLAGS['ACK'] and packet_tcp_sequence not in received_packets:
             received_packets[packet_tcp_sequence] = packet_data
             tcp_ack_sequence += packet_tcp_sequence + len(packet_data)
             print "putting data in ..."
-            print received_packets
+            #print received_packets
             if packet_flags & FLAGS['FIN']:
                 print "Finish!"
                 tcp_ack_sequence += 1
@@ -450,7 +466,7 @@ def run(url):
     if established_connection(LOCAL_HOST, REMOTE_HOST):
         request = "GET " + path + " HTTP/1.1\r\n" + "Host: " + host + "\r\n\r\n"
         buffer_length = len(request)
-        #print "request", request
+        print "request", request
         packet = create_packet(LOCAL_HOST, REMOTE_HOST, request, FLAGS['PSH_ACK'])
         send(packet)
         packets = receive()
