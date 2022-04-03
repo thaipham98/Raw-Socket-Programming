@@ -255,7 +255,7 @@ def is_valid_ip_response(ip_src, ip_dst, ip_checksum):
 
 
 def receive_tcp():
-    receive_socket.settimeout(5)
+    receive_socket.settimeout(30)
     #print "start receive"
     #print tcp_sequence
     try:
@@ -269,6 +269,7 @@ def receive_tcp():
                 received_tcp_response = get_tcp_response(ip_data)
                 if is_valid_tcp_response(received_tcp_response):
                     #print "valid tcp"
+                    #print "receieve tcp!!"
                     return received_tcp_response
     except socket.timeout:
         print "Time out when getting packet"
@@ -385,14 +386,15 @@ def receive():
             received_packets[packet_tcp_sequence] = packet_data
             tcp_ack_sequence += packet_tcp_sequence + len(packet_data)
 
-        elif packet_flags & FLAGS['FIN']:
-            tcp_ack_sequence += 1
-            if not closed_connection():
-                sys.exit(1)
-            break
-        else:
-            ack_packet = create_packet(LOCAL_HOST, REMOTE_HOST, FLAGS['ACK'])
-            send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+            if packet_flags & FLAGS['FIN']:
+                print "Finish!"
+                tcp_ack_sequence += 1
+                if not closed_connection():
+                    sys.exit(1)
+                break
+            else:
+                ack_packet = create_packet(LOCAL_HOST, REMOTE_HOST, '', FLAGS['ACK'])
+                send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
 
     print "Received data"
     return received_packets
