@@ -372,22 +372,23 @@ def receive():
 
     while True:
         packet = receive_tcp()
-        print "receiving packets ..."
         if not packet:
             print "Cannot connect to the server"
             # if not closed_connection():
             #     sys.exit(1)
             sys.exit(1)
+        print "receiving packets ..."
+
 
         print "here"
         packet_flags = packet.tcp_flag
         packet_tcp_sequence = packet.tcp_sequence
         packet_data = packet.tcp_data
 
-        if packet_flags & FLAGS['ACK']:
+        if packet_flags & FLAGS['ACK'] and packet_tcp_sequence not in received_packets:
             received_packets[packet_tcp_sequence] = packet_data
             tcp_ack_sequence += packet_tcp_sequence + len(packet_data)
-
+            print "putting data in ..."
             if packet_flags & FLAGS['FIN']:
                 print "Finish!"
                 tcp_ack_sequence += 1
@@ -397,6 +398,7 @@ def receive():
             else:
                 ack_packet = create_packet(LOCAL_HOST, REMOTE_HOST, '', FLAGS['ACK'])
                 send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+                print "send back ack ..."
 
     print "Received data"
     return received_packets
