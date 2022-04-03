@@ -372,12 +372,14 @@ def receive():
 
     while True:
         packet = receive_tcp()
+        print "receiving packets ..."
         if not packet:
             print "Cannot connect to the server"
-            if not closed_connection():
-                sys.exit(1)
-            sys.exit(0)
+            # if not closed_connection():
+            #     sys.exit(1)
+            sys.exit(1)
 
+        print "here"
         packet_flags = packet.tcp_flag
         packet_tcp_sequence = packet.tcp_sequence
         packet_data = packet.tcp_data
