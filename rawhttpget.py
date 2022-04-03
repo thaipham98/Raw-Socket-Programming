@@ -73,7 +73,9 @@ def checksum(message):
 
 #https://www.delftstack.com/howto/python/get-ip-address-python/
 def extract_addr(host):
-    src_addr = socket.gethostbyname(socket.gethostname())
+    #src_addr = socket.gethostbyname(socket.gethostname())
+    src_addr = '172.27.123.30'
+    print host
     dst_addr = socket.gethostbyname(host)
     return src_addr, dst_addr
 
@@ -81,10 +83,11 @@ def extract_addr(host):
 # get from the tutorial
 # TODO: REFACTOR TO AVOID PLAGIARISM
 def create_tcp_header(src_addr, dst_addr, data, flags):
+    global tcp_sequence, tcp_ack_sequence
     tcp_source = LOCAL_PORT  # source port
     tcp_dest = REMOTE_PORT  # destination port
-    tcp_seq = 454
-    tcp_ack_seq = 0
+    tcp_seq = tcp_sequence
+    tcp_ack_seq = tcp_ack_sequence
     tcp_doff = 5  # 4 bit field, size of tcp header, 5 * 4 = 20 bytes
     tcp_window = socket.htons(5840)  # maximum allowed window size
     tcp_check = 0
@@ -100,6 +103,10 @@ def create_tcp_header(src_addr, dst_addr, data, flags):
     dest_address = socket.inet_aton(dst_addr)
     placeholder = 0
     protocol = socket.IPPROTO_TCP
+
+    # if len(data) % 2 != 0:
+    #     data += ' '
+
     tcp_length = len(tcp_header) + len(data)
 
     psh = pack('!4s4sBBH', source_address, dest_address, placeholder, protocol, tcp_length)
@@ -139,7 +146,7 @@ def create_ip_header(src_addr, dst_addr):
 
 def extract_url(url):
     try:
-        parsed_url = urllib.parse.urlparse(url)
+        parsed_url = urlparse(url)
     except:
         print "Invalid URL. Please try another URL!"
         sys.exit(1)
@@ -238,12 +245,17 @@ def is_valid_ip_response(ip_src, ip_dst, ip_checksum):
 
 
 def receive_tcp():
-    receive_socket.settimeout(60)
+    receive_socket.settimeout(5)
+    print "here0"
+    print tcp_sequence
     try:
         while True:
             received_packet = receive_socket.recv(MAX_SIZE)
+            print "here1"
             ip_src, ip_dst, ip_data, ip_checksum = get_ip_response(received_packet)
+            print ip_src, ip_dst, ip_data, ip_checksum
             if is_valid_ip_response(ip_src, ip_dst, ip_checksum):
+                print "here2"
                 received_tcp_response = get_tcp_response(ip_data)
                 if is_valid_tcp_response(received_tcp_response):
                     return received_tcp_response
@@ -255,7 +267,8 @@ def receive_tcp():
 def acked():
     global tcp_sequence, tcp_ack_sequence
     current_time = time.time()
-    while time.time() - current_time < 60:
+    #print tcp_sequence
+    while time.time() - current_time < 10:
         received_tcp = receive_tcp()
         if filter_tcp_response(received_tcp):
             tcp_sequence = received_tcp.tcp_ack_sequence
@@ -267,9 +280,11 @@ def acked():
 # TODO: https://accedian.com/blog/diagnose-tcp-connection-setup-issues/
 #Three-way handshake
 def established_connection(src_addr, dst_addr):
+    #print REMOTE_HOST, REMOTE_PORT
     global tcp_sequence
     syn_packet = create_packet(src_addr, dst_addr, '', FLAGS['SYN'])
-    tcp_sequence = randint(0, int("inf"))
+    tcp_sequence = randint(0, MAX_SIZE)
+    print syn_packet
     send_socket.sendto(syn_packet, (REMOTE_HOST, REMOTE_PORT))
 
     if not acked():
@@ -279,6 +294,7 @@ def established_connection(src_addr, dst_addr):
 
     ack_packet = create_packet(src_addr, dst_addr, FLAGS['ACK'])
     send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+    print "Done 3way handshake"
     return True
 
 def closed_connection():
@@ -405,7 +421,7 @@ def process_data(packets):
 def run(url):
     global LOCAL_HOST, REMOTE_HOST, buffer_length
 
-    path, host = extract_url(url)
+    host, path = extract_url(url)
     src_addr, dst_addr = extract_addr(host)
     LOCAL_HOST = src_addr
     REMOTE_HOST = dst_addr
@@ -423,6 +439,8 @@ def run(url):
         export_file(path, body)
     else:
         print "Failed to establish connection!"
+        send_socket.close()
+        receive_socket.close()
         sys.exit(1)
 
 
@@ -440,7 +458,7 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         sys.exit("Invalid number of arguments")
     url = check_url(sys.argv[1])
-    print url
+    #print url
     run(url)
 
 
