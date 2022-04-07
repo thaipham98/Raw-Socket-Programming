@@ -1,4 +1,3 @@
-
 import socket
 import sys
 import time
@@ -7,7 +6,7 @@ from random import randint
 from struct import pack, unpack, calcsize
 
 REMOTE_PORT = 80
-LOCAL_PORT = randint(1001, 65535)
+LOCAL_PORT = randint(1000, 9999)
 LOCAL_HOST = ''
 REMOTE_HOST = ''
 
@@ -21,6 +20,7 @@ receive_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_T
 tcp_sequence = 0
 tcp_ack_sequence = 0
 data_length = 0
+
 
 # Make a TCP_Response object
 class TCP_Response(object):
@@ -48,6 +48,7 @@ def checksum(message):
     _sum += (_sum >> 16)
     _sum = ~_sum & 0xffff
     return _sum
+
 
 # Extract source and destination address
 def extract_addr(host):
@@ -127,11 +128,13 @@ def extract_url(url):
 
     return host, path
 
+
 # Create packet to send
 def create_packet(data, flags):
     tcp_header = create_tcp_header(data, flags)
     ip_header = create_ip_header()
     return ip_header + tcp_header + data
+
 
 # Filter TCP Response
 def filter_tcp_response(received_tcp_response):
@@ -143,6 +146,7 @@ def filter_tcp_response(received_tcp_response):
         return False
 
     return True
+
 
 # Get or unpack IP response
 def get_ip_response(received_packet):
@@ -167,6 +171,7 @@ def get_ip_response(received_packet):
     ip_check_sum = checksum(ip_header)
 
     return ip_src, ip_dst, ip_data, ip_check_sum
+
 
 # Get or unpack TCP response
 def get_tcp_response(ip_data):
@@ -254,14 +259,13 @@ def established_connection():
     return True
 
 
-
-
 def fin_to_close(tcp_response):
     return tcp_response.tcp_flag & FLAGS['FIN']
 
-#https://www.geeksforgeeks.org/tcp-connection-termination/
+
+# https://www.geeksforgeeks.org/tcp-connection-termination/
 def closed_connection():
-    #global send_socket, receive_socket
+    # global send_socket, receive_socket
     fin_ack_packet = create_packet('', FLAGS['FIN_ACK'])
     send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
     if acked():
@@ -276,7 +280,6 @@ def closed_connection():
 
     print "Closing connection failed!"
     return False
-
 
 
 # https://stackoverflow.com/questions/15182106/what-is-the-reason-and-how-to-avoid-the-fin-ack-rst-and-rst-ack
