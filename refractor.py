@@ -1,7 +1,7 @@
+
 import socket
 import sys
 import time
-from collections import namedtuple
 from urlparse import urlparse
 from random import randint
 from struct import pack, unpack, calcsize
@@ -13,19 +13,13 @@ REMOTE_HOST = ''
 
 # Flags
 FLAGS = {'SYN': 2, 'ACK': 16, 'PSH_ACK': 24, 'FIN': 1, 'FIN_ACK': 17}
-# https://www.ibm.com/docs/en/zos/2.3.0?topic=concepts-introducing-tcpip-selecting-sockets
+
 MAX_SIZE = 65535
 send_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
 receive_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
 tcp_sequence = 0
 tcp_ack_sequence = 0
 data_length = 0
-
-
-
-# https://cs.stackexchange.com/questions/76393/tcp-connection-termination-fin-fin-ack-ack
-# https://accedian.com/blog/close-tcp-sessions-diagnose-disconnections/#:~:text=The%20standard%20way%20to%20close,response%20from%20the%20other%20party.&text=B%20can%20now%20send%20a,acknowledgement%20(Last%20Ack%20wait).
-# https://wiki.wireshark.org/TCP-4-times-close.md
 
 class TCP_Response(object):
     def __init__(self, tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_data_offset, tcp_check, tcp_flag,
@@ -40,8 +34,7 @@ class TCP_Response(object):
         self.tcp_data = tcp_data
 
 
-# checksum functions needed for calculation checksum
-# TODO: REFACTOR TO AVOID PLAGIARISM? KB DC CHUA
+# Checksum functions needed for calculation checksum
 def checksum(message):
     if len(message) % 2 == 1:
         message = message + pack('B', 0)
@@ -54,8 +47,7 @@ def checksum(message):
     _sum = ~_sum & 0xffff
     return _sum
 
-#https://stackoverflow.com/questions/24196932/how-can-i-get-the-ip-address-from-a-nic-network-interface-controller-in-python
-# https://www.delftstack.com/howto/python/get-ip-address-python/
+
 def extract_addr(host):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
@@ -272,17 +264,19 @@ def established_connection():
 #https://www.geeksforgeeks.org/tcp-connection-termination/
 def acked_close():
     global tcp_sequence, tcp_ack_sequence
-    current_time = time.time()
-    while time.time() - current_time < 10:
-        received_tcp = receive_tcp()
-        flag = received_tcp.tcp_flag
-        if flag & FLAGS['FIN']:
-            return True
+
+    fin_tcp = receive_tcp()
+    fin_flag = fin_tcp.tcp_flag
+    ack_tcp = receive_tcp()
+    ack_tcp = ack_tcp.tcp_flag
+    if fin_flag & FLAGS['FIN'] and ack_tcp & FLAGS['ACK']:
+        return True
 
     return False
 
 
 def closed_connection():
+    global send_socket, receive_socket
     fin_ack_packet = create_packet('', FLAGS['FIN_ACK'])
     send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
 
@@ -299,6 +293,7 @@ def closed_connection():
         ack_packet = create_packet('', FLAGS['ACK'])
         send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
         send_socket.close()
+        receive_socket.close()
         print "Connection closed!"
         return True
 
