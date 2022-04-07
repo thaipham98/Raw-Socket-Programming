@@ -277,15 +277,16 @@ def closed_connection():
     # Time out after 10s for closing connection
     while time.time() - current_time < 10:
         send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
-        tcp_response = receive_tcp()
-        flag = tcp_response.tcp_flag
-        if flag & FLAGS['FIN']:
-            ack_packet = create_packet('', FLAGS['ACK'])
-            send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
-            send_socket.close()
-            receive_socket.close()
-            print "Connection is closed!"
-            return True
+        if acked():
+            tcp_response = receive_tcp()
+            flag = tcp_response.tcp_flag
+            if flag & FLAGS['FIN']:
+                ack_packet = create_packet('', FLAGS['ACK'])
+                send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+                send_socket.close()
+                receive_socket.close()
+                print "Connection is closed!"
+                return True
 
     print "Closing connection failed!"
     return False
