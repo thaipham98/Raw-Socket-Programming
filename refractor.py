@@ -269,24 +269,37 @@ def established_connection():
     print "Done three-way handshake!"
     return True
 
+#https://www.geeksforgeeks.org/tcp-connection-termination/
+def acked_close():
+    global tcp_sequence, tcp_ack_sequence
+    current_time = time.time()
+    while time.time() - current_time < 10:
+        received_tcp = receive_tcp()
+        flag = received_tcp.tcp_flag
+        if flag & FLAGS['FIN']:
+            return True
+
+    return False
+
 
 def closed_connection():
     fin_ack_packet = create_packet('', FLAGS['FIN_ACK'])
-    current_time = time.time()
+    send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
 
-    # Time out after 10s for closing connection
-    while time.time() - current_time < 10:
-        send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
-        if acked():
-            tcp_response = receive_tcp()
-            flag = tcp_response.tcp_flag
-            if flag & FLAGS['FIN']:
-                ack_packet = create_packet('', FLAGS['ACK'])
-                send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
-                send_socket.close()
-                receive_socket.close()
-                print "Connection is closed!"
-                return True
+    if acked_close():
+        # tcp_response = receive_tcp()
+        # flag = tcp_response.tcp_flag
+        # if flag & FLAGS['FIN']:
+        #     ack_packet = create_packet('', FLAGS['ACK'])
+        #     send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+        #     send_socket.close()
+        #     receive_socket.close()
+        #     print "Connection is closed!"
+        #     return True
+        ack_packet = create_packet('', FLAGS['ACK'])
+        send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+        send_socket.close()
+        print "Connection closed!"
 
     print "Closing connection failed!"
     return False
