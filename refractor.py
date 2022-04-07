@@ -14,6 +14,7 @@ REMOTE_HOST = ''
 # Flags
 FLAGS = {'SYN': 2, 'ACK': 16, 'PSH_ACK': 24, 'FIN': 1, 'FIN_ACK': 17}
 
+# Set up default value and sockets
 MAX_SIZE = 65535
 send_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
 receive_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
@@ -21,6 +22,7 @@ tcp_sequence = 0
 tcp_ack_sequence = 0
 data_length = 0
 
+# Make a TCP_Response object
 class TCP_Response(object):
     def __init__(self, tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_data_offset, tcp_check, tcp_flag,
                  tcp_data):
@@ -47,7 +49,7 @@ def checksum(message):
     _sum = ~_sum & 0xffff
     return _sum
 
-
+# Extract source and destination address
 def extract_addr(host):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
@@ -56,24 +58,21 @@ def extract_addr(host):
     return src_addr, dst_addr
 
 
-# get from the tutorial
-# TODO: REFACTOR TO AVOID PLAGIARISM
+# TCP Construction
 def create_tcp_header(data, flags):
     global tcp_sequence, tcp_ack_sequence
-    tcp_source = LOCAL_PORT  # source port
-    tcp_dest = REMOTE_PORT  # destination port
+    # Set TCP fields
+    tcp_source = LOCAL_PORT
+    tcp_dest = REMOTE_PORT
     tcp_seq = tcp_sequence
     tcp_ack_seq = tcp_ack_sequence
-    tcp_doff = 5  # 4 bit field, size of tcp header, 5 * 4 = 20 bytes
-    tcp_window = socket.htons(2048)  # maximum allowed window size
+    tcp_doff = 5
+    tcp_window = socket.htons(2048)
     tcp_check = 0
     tcp_urg_ptr = 0
-
     tcp_offset_res = (tcp_doff << 4) + 0
     tcp_flags = flags
-
-    # the ! in the pack format string means network order
-
+    # "Pack" TCP header
     tcp_header = pack('!HHLLBBHHH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags,
                       tcp_window, tcp_check, tcp_urg_ptr)
 
@@ -88,36 +87,35 @@ def create_tcp_header(data, flags):
 
     tcp_check = checksum(psh)
 
-    # make the tcp header again and fill the correct checksum - remember checksum is NOT in network byte order
+    # "Pack" the tcp header again and fill the correct checksum
     tcp_header = pack('!HHLLBBH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags,
                       tcp_window) + pack('H', tcp_check) + pack('!H', tcp_urg_ptr)
     return tcp_header
 
 
-# get from tutorial,
-# TODO: REFACTOR TO AVOID PLAGIARISM
-def create_ip_header(data):
+# IP construction
+def create_ip_header():
+    # Set IP header fields
     ip_ihl = 5
     ip_ver = 4
     ip_tos = 0
-    ip_tot_len = 0  # kernel will fill the correct total length
+    ip_tot_len = 0
     ip_id = randint(0, 65535)
     ip_frag_off = 0
     ip_ttl = 255
     ip_proto = socket.IPPROTO_TCP
-    ip_check = 0  # kernel will fill the correct checksum
-    ip_saddr = socket.inet_aton(LOCAL_HOST)  # Spoof the source ip address if you want to
+    ip_check = 0
+    ip_saddr = socket.inet_aton(LOCAL_HOST)
     ip_daddr = socket.inet_aton(REMOTE_HOST)
-
     ip_ihl_ver = (ip_ver << 4) + ip_ihl
 
-    # the ! in the pack format string means network order
+    # Pack IP header
     ip_header = pack('!BBHHHBBH4s4s', ip_ihl_ver, ip_tos, ip_tot_len, ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check,
                      ip_saddr, ip_daddr)
-
     return ip_header
 
 
+# Extract host and path name from provided URL
 def extract_url(url):
     try:
         parsed_url = urlparse(url)
@@ -129,13 +127,13 @@ def extract_url(url):
 
     return host, path
 
-
+# Create packet to send
 def create_packet(data, flags):
     tcp_header = create_tcp_header(data, flags)
-    ip_header = create_ip_header(tcp_header)
+    ip_header = create_ip_header()
     return ip_header + tcp_header + data
 
-
+# Filter TCP Response
 def filter_tcp_response(received_tcp_response):
     if not received_tcp_response:
         return False
@@ -146,9 +144,7 @@ def filter_tcp_response(received_tcp_response):
 
     return True
 
-
-
-# https://www.cs.miami.edu/home/burt/learning/Csc524.092/notes/ip_example.html
+# Get or unpack IP response
 def get_ip_response(received_packet):
     # Get IP header list
     ip_header_buffer = received_packet[:20]
@@ -157,16 +153,15 @@ def get_ip_response(received_packet):
     # Retrieve IP source and IP destination
     ip_src = socket.inet_ntoa(ip_header_list[-2])
     ip_dst = socket.inet_ntoa(ip_header_list[-1])
+    # Calculate IP header size
     ip_header_size = calcsize('!BBHHHBBH4s4s')
     ip_ihl = ip_ver_ihl - (4 << 4)
+    # Count for options
     if ip_ihl > 5:
         opts_size = (ip_ihl - 5) * 4
         ip_header_size += opts_size
-    # Calculate IP header size
-
     # Retrieve IP data
     ip_data = received_packet[ip_header_size:ip_header_list[2]]
-
     # Perform check sum
     ip_header = received_packet[:ip_header_size]
     ip_check_sum = checksum(ip_header)
@@ -276,11 +271,11 @@ def acked_close():
 
 
 def closed_connection():
-    global send_socket, receive_socket
+    #global send_socket, receive_socket
     fin_ack_packet = create_packet('', FLAGS['FIN_ACK'])
     send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
 
-    if acked_close():
+    if acked():
         # tcp_response = receive_tcp()
         # flag = tcp_response.tcp_flag
         # if flag & FLAGS['FIN']:
@@ -290,8 +285,8 @@ def closed_connection():
         #     receive_socket.close()
         #     print "Connection is closed!"
         #     return True
-        ack_packet = create_packet('', FLAGS['ACK'])
-        send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+        # ack_packet = create_packet('', FLAGS['ACK'])
+        # send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
         send_socket.close()
         receive_socket.close()
         print "Connection closed!"
