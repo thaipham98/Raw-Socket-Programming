@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 import socket
 import sys
 import time
@@ -148,7 +149,7 @@ def filter_tcp_response(received_tcp_response):
     return True
 
 
-# Get or unpack IP response
+# Get/unpack IP response
 def get_ip_response(received_packet):
     # Get IP header list
     ip_header_buffer = received_packet[:20]
@@ -173,7 +174,7 @@ def get_ip_response(received_packet):
     return ip_src, ip_dst, ip_data, ip_check_sum
 
 
-# Get or unpack TCP response
+# Get/unpack TCP response
 def get_tcp_response(ip_data):
     # Get TCP header list
     tcp_header_size = calcsize('!HHLLBBHHH')
@@ -204,14 +205,17 @@ def get_tcp_response(ip_data):
     return TCP_Response(tcp_src, tcp_dst, tcp_seq, tcp_ack_seq, tcp_data_offset, tcp_check, tcp_flag, tcp_data)
 
 
+# Check to see if tcp response is valid or not
 def is_valid_tcp_response(received_tcp_response):
     return not received_tcp_response.tcp_check and received_tcp_response.tcp_src == REMOTE_PORT and received_tcp_response.tcp_dst == LOCAL_PORT
 
 
+# Check to see if ip response is valid or not
 def is_valid_ip_response(ip_src, ip_dst, ip_checksum):
     return not ip_checksum and ip_src == REMOTE_HOST and ip_dst == LOCAL_HOST
 
 
+# Receive TCP segment
 def receive_tcp():
     receive_socket.settimeout(60)
     try:
@@ -227,6 +231,7 @@ def receive_tcp():
         return None
 
 
+# Check to see if we receive ACK flag
 def acked():
     global tcp_sequence, tcp_ack_sequence
     current_time = time.time()
@@ -240,8 +245,7 @@ def acked():
     return False
 
 
-# TODO: https://accedian.com/blog/diagnose-tcp-connection-setup-issues/
-# Three-way handshake
+# Three-way handshake Protocol
 def established_connection():
     global tcp_sequence
     tcp_sequence = tcp_sequence = randint(0, (2 << 31) - 1)
@@ -259,13 +263,13 @@ def established_connection():
     return True
 
 
+# Receive FIN flag to close connection
 def fin_to_close(tcp_response):
     return tcp_response.tcp_flag & FLAGS['FIN']
 
 
-# https://www.geeksforgeeks.org/tcp-connection-termination/
+# Close connection after finish transmitting data
 def closed_connection():
-    # global send_socket, receive_socket
     fin_ack_packet = create_packet('', FLAGS['FIN_ACK'])
     send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
     if acked():
@@ -282,7 +286,7 @@ def closed_connection():
     return False
 
 
-# https://stackoverflow.com/questions/15182106/what-is-the-reason-and-how-to-avoid-the-fin-ack-rst-and-rst-ack
+# Check to see if we receive data after sending request
 def received():
     global tcp_sequence, tcp_ack_sequence
     current_time = time.time()
@@ -303,6 +307,7 @@ def received():
     return False
 
 
+# Send data
 def send(packet):
     current_time = time.time()
     send_socket.sendto(packet, (REMOTE_HOST, REMOTE_PORT))
@@ -316,6 +321,7 @@ def send(packet):
     print "Sent request"
 
 
+# Receive data 
 def receive():
     global tcp_ack_sequence
     received_packets = {}
@@ -346,7 +352,9 @@ def receive():
     return received_packets
 
 
-def is_valid(data):
+# Check to see if our data is valid or not
+# If yes, return the data for extraction. Return None otherwise.
+def is_valid_data(data):
     try:
         position = data.index("\r\n\r\n") + 4
     except:
@@ -361,6 +369,7 @@ def is_valid(data):
     return True, data[position:]
 
 
+# Export file after successfully received and processed
 def export_file(path, body):
     if not path:
         file_name = 'index.html'
@@ -371,16 +380,22 @@ def export_file(path, body):
     print "Successfully exported file:", file_name
 
 
+# Process the data received
 def process_data(packets):
     packet_list = packets.items()
     packet_list.sort()
-    data_list = [i[1] for i in packet_list]
+
+    segments = []
+    for segment in packet_list:
+        segments.append(segment[1])
+
     result = ''
-    for data in data_list:
+    for data in segments:
         result += data
     return result
 
 
+# Run our program
 def run(url):
     global LOCAL_HOST, REMOTE_HOST, data_length
 
@@ -396,7 +411,7 @@ def run(url):
         send(packet)
         packets = receive()
         data = process_data(packets)
-        valid, body = is_valid(data)
+        valid, body = is_valid_data(data)
         if not valid:
             sys.exit(1)
         export_file(path, body)
@@ -407,6 +422,7 @@ def run(url):
         sys.exit(1)
 
 
+# Check to see the URL passed in is in correct format
 def check_url(url):
     if "https://" in url:
         print ("Cannot handle https")
