@@ -55,12 +55,12 @@ def checksum(message):
     _sum = ~_sum & 0xffff
     return _sum
 
-
+#https://stackoverflow.com/questions/24196932/how-can-i-get-the-ip-address-from-a-nic-network-interface-controller-in-python
 # https://www.delftstack.com/howto/python/get-ip-address-python/
 def extract_addr(host):
-    # src_addr = socket.gethostbyname(socket.gethostname())
-    src_addr = '172.23.214.109'  # TODO
-    # print host
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    src_addr = s.getsockname()[0]
     dst_addr = socket.gethostbyname(host)
     return src_addr, dst_addr
 
@@ -272,11 +272,9 @@ def acked():
 # Three-way handshake
 def established_connection():
     global tcp_sequence
-    tcp_sequence = randint(0, (2 << 31) - 1)
-    #print syn_packet
+    tcp_sequence = randint(0, 5000)
 
     syn_packet = create_packet('', FLAGS['SYN'])
-
     send_socket.sendto(syn_packet, (REMOTE_HOST, REMOTE_PORT))
 
     if not acked():
