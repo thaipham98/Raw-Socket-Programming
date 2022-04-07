@@ -8,7 +8,7 @@ from struct import pack, unpack, calcsize
 
 REMOTE_PORT = 80
 LOCAL_PORT = 1234
-LOCAL_HOST = ''
+LOCAL_HOST = randint(1001, 65535)
 REMOTE_HOST = ''
 
 # Flags
@@ -162,16 +162,13 @@ def get_ip_response(received_packet):
         ip_header_size += opts_size
     # Retrieve IP data
     ip_data = received_packet[ip_header_size:ip_header_list[2]]
-    # Perform check sum
     ip_header = received_packet[:ip_header_size]
+    # Perform check sum
     ip_check_sum = checksum(ip_header)
 
     return ip_src, ip_dst, ip_data, ip_check_sum
 
-
-# https://www.quora.com/What-is-TCP-checksum
-# https://www.oreilly.com/library/view/internet-core-protocols/1565925726/re69.html
-# https://en.wikipedia.org/wiki/Transmission_Control_Protocol
+# Get or unpack TCP response
 def get_tcp_response(ip_data):
     # Get TCP header list
     tcp_header_size = calcsize('!HHLLBBHHH')
@@ -242,7 +239,7 @@ def acked():
 # Three-way handshake
 def established_connection():
     global tcp_sequence
-    tcp_sequence = randint(0, 5000)
+    tcp_sequence = tcp_sequence = randint(0, (2 << 31) - 1)
 
     syn_packet = create_packet('', FLAGS['SYN'])
     send_socket.sendto(syn_packet, (REMOTE_HOST, REMOTE_PORT))
@@ -285,8 +282,8 @@ def closed_connection():
         #     receive_socket.close()
         #     print "Connection is closed!"
         #     return True
-        # ack_packet = create_packet('', FLAGS['ACK'])
-        # send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+        ack_packet = create_packet('', FLAGS['ACK'])
+        send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
         send_socket.close()
         receive_socket.close()
         print "Connection closed!"
@@ -351,7 +348,7 @@ def receive():
             tcp_ack_sequence = packet_tcp_sequence + len(packet_data)
             if packet_flags & FLAGS['FIN']:
                 print "Finish receiving data!"
-                #return received_packets
+                return received_packets
                 tcp_ack_sequence += 1
                 if not closed_connection():
                     sys.exit(1)
