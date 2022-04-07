@@ -1,12 +1,9 @@
-
 import socket
 import sys
 import time
 from urlparse import urlparse
 from random import randint
 from struct import pack, unpack, calcsize
-
-
 
 REMOTE_PORT = 80
 LOCAL_PORT = 1234
@@ -24,6 +21,7 @@ tcp_sequence = 0
 tcp_ack_sequence = 0
 buffer_length = 0
 
+
 # TODO: Close connection
 # https://cs.stackexchange.com/questions/76393/tcp-connection-termination-fin-fin-ack-ack
 # https://accedian.com/blog/close-tcp-sessions-diagnose-disconnections/#:~:text=The%20standard%20way%20to%20close,response%20from%20the%20other%20party.&text=B%20can%20now%20send%20a,acknowledgement%20(Last%20Ack%20wait).
@@ -38,7 +36,8 @@ class TCP_Response(object):
     # tcp_flag =
     # tcp_data =
 
-    def __init__(self, tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_data_offset, tcp_check, tcp_flag, tcp_data):
+    def __init__(self, tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_data_offset, tcp_check, tcp_flag,
+                 tcp_data):
         self.tcp_src = tcp_src
         self.tcp_dst = tcp_dst
         self.tcp_sequence = tcp_sequence
@@ -88,11 +87,12 @@ def checksum(message):
 
     return s
 
-#https://www.delftstack.com/howto/python/get-ip-address-python/
+
+# https://www.delftstack.com/howto/python/get-ip-address-python/
 def extract_addr(host):
-    #src_addr = socket.gethostbyname(socket.gethostname())
-    src_addr = '172.27.120.95' #TODO
-    #print host
+    # src_addr = socket.gethostbyname(socket.gethostname())
+    src_addr = '172.23.214.109'  # TODO
+    # print host
     dst_addr = socket.gethostbyname(host)
     return src_addr, dst_addr
 
@@ -105,7 +105,7 @@ def create_tcp_header(src_addr, dst_addr, data, flags):
     tcp_dest = REMOTE_PORT  # destination port
     tcp_seq = tcp_sequence
     tcp_ack_seq = tcp_ack_sequence
-    #print "tcp_ack_seq in tcp", tcp_ack_sequence
+    # print "tcp_ack_seq in tcp", tcp_ack_sequence
     tcp_doff = 5  # 4 bit field, size of tcp header, 5 * 4 = 20 bytes
     tcp_window = socket.htons(5840)  # maximum allowed window size
     tcp_check = 0
@@ -115,11 +115,10 @@ def create_tcp_header(src_addr, dst_addr, data, flags):
     tcp_flags = flags
 
     # the ! in the pack format string means network order
-    try:
-        tcp_header = pack('!HHLLBBHHH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags, tcp_window, tcp_check, tcp_urg_ptr)
-    except:
-        print tcp_check, tcp_urg_ptr
-        sys.exit(1)
+
+    tcp_header = pack('!HHLLBBHHH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags,
+                          tcp_window, tcp_check, tcp_urg_ptr)
+
     source_address = socket.inet_aton(src_addr)
     dest_address = socket.inet_aton(dst_addr)
     placeholder = 0
@@ -130,7 +129,7 @@ def create_tcp_header(src_addr, dst_addr, data, flags):
     psh = pack('!4s4sBBH', source_address, dest_address, placeholder, protocol, tcp_length)
     psh = psh + tcp_header + data
 
-    #print data
+    # print data
     tcp_check = checksum(psh)
     # print tcp_checksum
 
@@ -139,6 +138,7 @@ def create_tcp_header(src_addr, dst_addr, data, flags):
                       tcp_window) + pack('H', tcp_check) + pack('!H', tcp_urg_ptr)
     return tcp_header
 
+
 # get from tutorial,
 # TODO: REFACTOR TO AVOID PLAGIARISM
 def create_ip_header(src_addr, dst_addr):
@@ -146,7 +146,7 @@ def create_ip_header(src_addr, dst_addr):
     ip_ver = 4
     ip_tos = 0
     ip_tot_len = 0  # kernel will fill the correct total length
-    #ip_id = 54321  # Id of this packet
+    # ip_id = 54321  # Id of this packet
     ip_id = randint(0, 65535)
     ip_frag_off = 0
     ip_ttl = 255
@@ -185,23 +185,23 @@ def create_packet(src_addr, dst_addr, data, flags):
 
 def filter_tcp_response(received_tcp_response):
     if not received_tcp_response:
-        #print "empty"
+        # print "empty"
         return False
-    #print "response", received_tcp_response
+    # print "response", received_tcp_response
     received_tcp_flags = received_tcp_response.tcp_flag
-    #print "flag", received_tcp_flags
+    # print "flag", received_tcp_flags
     received_tcp_ack_sequence = received_tcp_response.tcp_ack_sequence
-    #print "ack_sequence", received_tcp_ack_sequence
-    #print "tcp_sequence", tcp_sequence
+    # print "ack_sequence", received_tcp_ack_sequence
+    # print "tcp_sequence", tcp_sequence
     if (not (received_tcp_flags & FLAGS['ACK'])) or received_tcp_ack_sequence < tcp_sequence + 1:
-        #print "not tcp acked"
+        # print "not tcp acked"
         return False
 
-    #sys.exit(1)
+    # sys.exit(1)
     return True
 
 
-#TODO: done
+# TODO: done
 # https://www.cs.miami.edu/home/burt/learning/Csc524.092/notes/ip_example.html
 def get_ip_response(received_packet):
     # Get IP header list
@@ -222,12 +222,10 @@ def get_ip_response(received_packet):
     IP_header = received_packet[:IP_header_size]
     IP_check_sum = checksum(IP_header)
 
-
     return IP_src, IP_dst, IP_data, IP_check_sum
 
 
-
-#TODO
+# TODO
 # https://www.quora.com/What-is-TCP-checksum
 # https://www.oreilly.com/library/view/internet-core-protocols/1565925726/re69.html
 # https://en.wikipedia.org/wiki/Transmission_Control_Protocol
@@ -258,8 +256,8 @@ def get_tcp_response(ip_data):
     tcp_flag = tcp_header_list[5]
     tcp_data = ip_data[tcp_header_size:]
     # Return TCP_Response object
-    return TCP_Response(tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_data_offset, tcp_check, tcp_flag, tcp_data)
-
+    return TCP_Response(tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_data_offset, tcp_check, tcp_flag,
+                        tcp_data)
 
 
 def is_valid_tcp_response(received_tcp_response):
@@ -272,20 +270,20 @@ def is_valid_ip_response(ip_src, ip_dst, ip_checksum):
 
 def receive_tcp():
     receive_socket.settimeout(30)
-    #print "start receive"
-    #print tcp_sequence
+    # print "start receive"
+    # print tcp_sequence
     try:
         while True:
             received_packet = receive_socket.recv(MAX_SIZE)
-            #print "received packet"
+            # print "received packet"
             ip_src, ip_dst, ip_data, ip_checksum = get_ip_response(received_packet)
-            #print ip_src, ip_dst, ip_data, ip_checksum
+            # print ip_src, ip_dst, ip_data, ip_checksum
             if is_valid_ip_response(ip_src, ip_dst, ip_checksum):
-                #print "valid ip"
+                # print "valid ip"
                 received_tcp_response = get_tcp_response(ip_data)
                 if is_valid_tcp_response(received_tcp_response):
-                    #print "valid tcp"
-                    #print "receieve tcp!!"
+                    # print "valid tcp"
+                    # print "receieve tcp!!"
                     return received_tcp_response
     except socket.timeout:
         print "Time out when getting packet"
@@ -295,36 +293,37 @@ def receive_tcp():
 def acked():
     global tcp_sequence, tcp_ack_sequence
     current_time = time.time()
-    #print tcp_sequence
+    # print tcp_sequence
     while time.time() - current_time < 10:
         received_tcp = receive_tcp()
         if filter_tcp_response(received_tcp):
-            #print "acked"
+            # print "acked"
             tcp_sequence = received_tcp.tcp_ack_sequence
             tcp_ack_sequence = received_tcp.tcp_sequence + 1
             return True
 
     return False
 
+
 # TODO: https://accedian.com/blog/diagnose-tcp-connection-setup-issues/
-#Three-way handshake
+# Three-way handshake
 def established_connection(src_addr, dst_addr):
-    #print REMOTE_HOST, REMOTE_PORT
+    # print REMOTE_HOST, REMOTE_PORT
     global tcp_sequence
     tcp_sequence = randint(0, 5000)
     syn_packet = create_packet(src_addr, dst_addr, '', FLAGS['SYN'])
-    #print syn_packet
+    # print syn_packet
     send_socket.sendto(syn_packet, (REMOTE_HOST, REMOTE_PORT))
 
     if not acked():
         print "Cannot ACK when establishing connection!"
         return False
 
-
     ack_packet = create_packet(src_addr, dst_addr, '', FLAGS['ACK'])
     send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
     print "Done 3way handshake!"
     return True
+
 
 def closed_connection():
     fin_ack_packet = create_packet(LOCAL_HOST, REMOTE_HOST, '', FLAGS['FIN_ACK'])
@@ -353,7 +352,7 @@ def received():
     global tcp_sequence, tcp_ack_sequence, buffer_length
     current_time = time.time()
 
-    #Time out after 60s for getting packet
+    # Time out after 60s for getting packet
     while time.time() - current_time < 10:
         received_tcp = receive_tcp()
         if not received_tcp:
@@ -394,19 +393,19 @@ def receive():
             #     sys.exit(1)
             sys.exit(1)
         print "receiving packets ..."
-        #print "here"
+        # print "here"
         packet_flags = packet.tcp_flag
         packet_tcp_sequence = packet.tcp_sequence
         packet_data = packet.tcp_data
         print "packet_flags ", packet_flags
         print "sequence ", packet_tcp_sequence
-        #print "data: ", packet_data
+        print "data: ", packet_data
 
         if packet_flags & FLAGS['ACK'] and packet_tcp_sequence not in received_packets:
             received_packets[packet_tcp_sequence] = packet_data
-            tcp_ack_sequence += packet_tcp_sequence + len(packet_data)
+            tcp_ack_sequence = packet_tcp_sequence + len(packet_data)
             print "putting data in ..."
-            #print received_packets
+            # print received_packets
             if packet_flags & FLAGS['FIN']:
                 print "Finish!"
                 tcp_ack_sequence += 1
@@ -464,7 +463,7 @@ def run(url):
     REMOTE_HOST = dst_addr
 
     if established_connection(LOCAL_HOST, REMOTE_HOST):
-        request = "GET " + path + " HTTP/1.1\r\n" + "Host: " + host + "\r\n\r\n"
+        request = "GET " + path + " HTTP/1.0\r\n" + "Host: " + host + "\r\n\r\n"
         buffer_length = len(request)
         print "request", request
         packet = create_packet(LOCAL_HOST, REMOTE_HOST, request, FLAGS['PSH_ACK'])
@@ -477,8 +476,8 @@ def run(url):
         export_file(path, body)
     else:
         print "Failed to establish connection!"
-        #send_socket.close()
-        #receive_socket.close()
+        # send_socket.close()
+        # receive_socket.close()
         sys.exit(1)
 
 
@@ -486,19 +485,19 @@ def check_url(url):
     if "https://" in url:
         print ("Cannot handle https")
         sys.exit(1)
-    
+
     if "http://" not in url:
         url = "http://" + url
-    
+
     return url
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         sys.exit("Invalid number of arguments")
     url = check_url(sys.argv[1])
-    #print url
+    # print url
     run(url)
-
 
 
 
