@@ -300,6 +300,7 @@ def closed_connection():
         send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
         send_socket.close()
         print "Connection closed!"
+        return True
 
     print "Closing connection failed!"
     return False
