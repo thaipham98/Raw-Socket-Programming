@@ -30,6 +30,8 @@ tcp_sequence = 0
 tcp_ack_sequence = 0
 send_buffer = ''
 
+
+
 # TODO: Close connection
 # https://cs.stackexchange.com/questions/76393/tcp-connection-termination-fin-fin-ack-ack
 # https://accedian.com/blog/close-tcp-sessions-diagnose-disconnections/#:~:text=The%20standard%20way%20to%20close,response%20from%20the%20other%20party.&text=B%20can%20now%20send%20a,acknowledgement%20(Last%20Ack%20wait).
@@ -106,46 +108,6 @@ def extract_addr(host):
 # get from the tutorial
 # TODO: REFACTOR TO AVOID PLAGIARISM
 def create_tcp_header(data, flags):
-    # global tcp_sequence, tcp_ack_sequence
-    # tcp_source = LOCAL_PORT  # source port
-    # tcp_dest = REMOTE_PORT  # destination port
-    # tcp_seq = tcp_sequence
-    # tcp_ack_seq = tcp_ack_sequence
-    # #print "tcp_ack_seq in tcp", tcp_ack_sequence
-    # tcp_doff = 5  # 4 bit field, size of tcp header, 5 * 4 = 20 bytes
-    # tcp_window = 2048  # maximum allowed window size
-    # tcp_check = 0
-    # tcp_urg_ptr = 0
-    #
-    # tcp_offset_res = (tcp_doff << 4) + 0
-    # tcp_flags = flags
-    #
-    # # the ! in the pack format string means network order
-    # #try:
-    # tcp_header = pack('!HHLLBBHHH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags, tcp_window, tcp_check, tcp_urg_ptr)
-    # #except:
-    #  #   print tcp_check, tcp_urg_ptr
-    #   #  sys.exit(1)
-    # source_address = socket.inet_aton(src_addr)
-    # dest_address = socket.inet_aton(dst_addr)
-    # placeholder = 0
-    # protocol = socket.IPPROTO_TCP
-    #
-    # if len(data) % 2 != 0:
-    #     data += ' '
-    # tcp_length = len(tcp_header) + len(data)
-    #
-    # psh = pack('!4s4sBBH', source_address, dest_address, placeholder, protocol, tcp_length)
-    # psh = psh + tcp_header + data
-    #
-    # #print data
-    # tcp_check = checksum(psh)
-    # # print tcp_checksum
-    #
-    # # make the tcp header again and fill the correct checksum - remember checksum is NOT in network byte order
-    # tcp_header = pack('!HHLLBBH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags,
-    #                   tcp_window) + pack('H', tcp_check) + pack('!H', tcp_urg_ptr)
-
     global tcp_sequence, tcp_ack_sequence
     tcp_source = LOCAL_PORT  # source port
     tcp_dest = REMOTE_PORT  # destination port
@@ -188,8 +150,7 @@ def create_ip_header(data):
     ip_ihl = 5
     ip_ver = 4
     ip_tos = 0
-    ip_tot_len = 20 + len(data)  # kernel will fill the correct total length
-    #ip_id = 54321  # Id of this packet
+    ip_tot_len = 0  # kernel will fill the correct total length
     ip_id = randint(0, 65535)
     ip_frag_off = 0
     ip_ttl = 255
@@ -203,23 +164,6 @@ def create_ip_header(data):
     # the ! in the pack format string means network order
     ip_header = pack('!BBHHHBBH4s4s', ip_ihl_ver, ip_tos, ip_tot_len, ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check,
                      ip_saddr, ip_daddr)
-    # ip_tos = 0
-    # ip_tot_len = 20 + len(data)
-    # ip_id = randint(0, 65535)
-    # ip_frag_off = 0
-    # ip_ttl = 255
-    # ip_proto = socket.IPPROTO_TCP
-    # ip_check = 0
-    # ip_saddr = socket.inet_aton(LOCAL_HOST)
-    # ip_daddr = socket.inet_aton(REMOTE_HOST)
-    #
-    # ip_ihl_ver = (4 << 4) + 5
-    # ip_header = pack('!BBHHHBBH4s4s', ip_ihl_ver, ip_tos, ip_tot_len,
-    #                         ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check, ip_saddr, ip_daddr)
-    # ip_check = checksum(ip_header)
-    #
-    # ip_header = pack('!BBHHHBBH4s4s', ip_ihl_ver, ip_tos, ip_tot_len,
-    #                         ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check, ip_saddr, ip_daddr)
 
     return ip_header
 
@@ -238,7 +182,6 @@ def extract_url(url):
 
 def create_packet(data, flags):
     tcp_header = create_tcp_header(data, flags)
-    #unpack_tcp = get_tcp_response()
     ip_header = create_ip_header(tcp_header)
     return ip_header + tcp_header + data
 
@@ -248,9 +191,9 @@ def filter_tcp_response(received_tcp_response):
         #print "empty"
         return False
     #print "response", received_tcp_response
-    received_tcp_flags = received_tcp_response.tcp_flags
+    received_tcp_flags = received_tcp_response.tcp_flag
     #print "flag", received_tcp_flags
-    received_tcp_ack_sequence = received_tcp_response.tcp_ack_seq
+    received_tcp_ack_sequence = received_tcp_response.tcp_ack_sequence
     #print "ack_sequence", received_tcp_ack_sequence
     #print "tcp_sequence", tcp_sequence
     if (not (received_tcp_flags & FLAGS['ACK'])) or received_tcp_ack_sequence < tcp_sequence + 1:
@@ -265,86 +208,31 @@ def filter_tcp_response(received_tcp_response):
 # https://www.cs.miami.edu/home/burt/learning/Csc524.092/notes/ip_example.html
 def get_ip_response(received_packet):
     # Get IP header list
-    # IP_header_buffer = received_packet[:20]
-    # IP_header_list = unpack('!BBHHHBBH4s4s', IP_header_buffer)
-    # ip_ver_ihl = IP_header_list[0]
-    # # Retrieve IP source and IP destination
-    # IP_src = socket.inet_ntoa(IP_header_list[-2])
-    # IP_dst = socket.inet_ntoa(IP_header_list[-1])
-    # IP_header_size = calcsize('!BBHHHBBH4s4s')
-    # ip_ihl = ip_ver_ihl - (4 << 4)
-    # if ip_ihl > 5:
-    #     opts_size = (ip_ihl - 5) * 4
-    #     IP_header_size += opts_size
-    # # Calculate IP header size
-    #
-    #
-    # # Retrieve IP data
-    # IP_data = received_packet[IP_header_size:IP_header_list[2]]
-    #
-    # # Perform check sum
-    # IP_header = received_packet[:IP_header_size]
-    # IP_check_sum = checksum(IP_header)
-    #
-    #
-    # return IP_src, IP_dst, IP_data, IP_check_sum
-
-    hdr_fields = unpack('!BBHHHBBH4s4s', received_packet[:20])
+    ip_header_buffer = received_packet[:20]
+    ip_header_list = unpack('!BBHHHBBH4s4s', ip_header_buffer)
+    ip_ver_ihl = ip_header_list[0]
+    # Retrieve IP source and IP destination
+    ip_src = socket.inet_ntoa(ip_header_list[-2])
+    ip_dst = socket.inet_ntoa(ip_header_list[-1])
     ip_header_size = calcsize('!BBHHHBBH4s4s')
-    ip_ver_ihl = hdr_fields[0]
     ip_ihl = ip_ver_ihl - (4 << 4)
-
     if ip_ihl > 5:
         opts_size = (ip_ihl - 5) * 4
         ip_header_size += opts_size
-
-    ip_headers = received_packet[:ip_header_size]
-
-    data = received_packet[ip_header_size:hdr_fields[2]]
-    ip_check = checksum(ip_headers)
-
-    return IPDatagram(ip_daddr=socket.inet_ntoa(hdr_fields[-1]),
-                      ip_saddr=socket.inet_ntoa(hdr_fields[-2]),
-                      ip_frag_off=hdr_fields[4],
-                      ip_id=hdr_fields[3],
-                      ip_tlen=hdr_fields[2],
-                      ip_check=ip_check, data=data)
+    # Calculate IP header size
 
 
-#TODO
-# https://www.quora.com/What-is-TCP-checksum
-# https://www.oreilly.com/library/view/internet-core-protocols/1565925726/re69.html
-# https://en.wikipedia.org/wiki/Transmission_Control_Protocol
-def get_tcp_response(ip_data):
-    # Get TCP header list
-    # tcp_header_size = calcsize('!HHLLBBHHH')
-    # tcp_header_buffer = ip_data[:tcp_header_size]
-    # tcp_header_list = unpack('!HHLLBBHHH', tcp_header_buffer)
-    # # Retrieve fields for TCP_Response object
-    # tcp_src = tcp_header_list[0]
-    # tcp_dst = tcp_header_list[1]
-    # tcp_sequence = tcp_header_list[2]
-    # tcp_ack_sequence = tcp_header_list[3]
-    # tcp_data_offset = tcp_header_list[4] >> 4
-    # # If contain some tcp options (5 is the minimum size of tcp header)
-    # if tcp_data_offset > 5:
-    #     tcp_header_size += (tcp_data_offset - 5) * 4
-    # # Get tcp_check
-    # src_addr = socket.inet_aton(LOCAL_HOST)
-    # dest_addr = socket.inet_aton(REMOTE_HOST)
-    # placeholder = 0
-    # protocol_from_ip = socket.IPPROTO_TCP
-    # tcp_segment_length = len(ip_data)
-    # pseudo_header = pack('!4s4sBBH', src_addr, dest_addr, placeholder, protocol_from_ip, tcp_segment_length)
-    # pseudo_header = pseudo_header + ip_data
-    # tcp_check = checksum(pseudo_header)
-    #
-    # tcp_flag = tcp_header_list[5]
-    # tcp_data = ip_data[tcp_header_size:]
-    # # Return TCP_Response object
-    # return TCP_Response(tcp_src, tcp_dst, tcp_sequence, tcp_ack_sequence, tcp_data_offset, tcp_check, tcp_flag, tcp_data)
+    # Retrieve IP data
+    ip_data = received_packet[ip_header_size:ip_header_list[2]]
 
-    # hdr_fields = unpack('!BBHHHBBH4s4s', ip_data[:20])
+    # Perform check sum
+    ip_header = received_packet[:ip_header_size]
+    ip_check_sum = checksum(ip_header)
+
+
+    return ip_src, ip_dst, ip_data, ip_check_sum
+
+    # hdr_fields = unpack('!BBHHHBBH4s4s', received_packet[:20])
     # ip_header_size = calcsize('!BBHHHBBH4s4s')
     # ip_ver_ihl = hdr_fields[0]
     # ip_ihl = ip_ver_ihl - (4 << 4)
@@ -353,9 +241,9 @@ def get_tcp_response(ip_data):
     #     opts_size = (ip_ihl - 5) * 4
     #     ip_header_size += opts_size
     #
-    # ip_headers = ip_data[:ip_header_size]
+    # ip_headers = received_packet[:ip_header_size]
     #
-    # data = ip_data[ip_header_size:hdr_fields[2]]
+    # data = received_packet[ip_header_size:hdr_fields[2]]
     # ip_check = checksum(ip_headers)
     #
     # return IPDatagram(ip_daddr=socket.inet_ntoa(hdr_fields[-1]),
@@ -365,34 +253,68 @@ def get_tcp_response(ip_data):
     #                   ip_tlen=hdr_fields[2],
     #                   ip_check=ip_check, data=data)
 
+
+#TODO
+# https://www.quora.com/What-is-TCP-checksum
+# https://www.oreilly.com/library/view/internet-core-protocols/1565925726/re69.html
+# https://en.wikipedia.org/wiki/Transmission_Control_Protocol
+def get_tcp_response(ip_data):
+    # Get TCP header list
     tcp_header_size = calcsize('!HHLLBBHHH')
-    hdr_fields = unpack('!HHLLBBHHH', ip_data[:tcp_header_size])
-    tcp_source = hdr_fields[0]
-    tcp_dest = hdr_fields[1]
-    tcp_seq = hdr_fields[2]
-    tcp_ack_seq = hdr_fields[3]
-    tcp_doff_resvd = hdr_fields[4]
-    tcp_doff = tcp_doff_resvd >> 4  # get the data offset
-    tcp_adwind = hdr_fields[6]
-    tcp_urg_ptr = hdr_fields[7]
-    # parse TCP flags
-    tcp_flags = hdr_fields[5]
-    # process the TCP options if there are
-    # currently just skip it
-    if tcp_doff > 5:
-        opts_size = (tcp_doff - 5) * 4
-        tcp_header_size += opts_size
-    # get the TCP data
-    data = ip_data[tcp_header_size:]
-    # compute the checksum of the recv packet with psh
-    tcp_check = _tcp_check(ip_data)
-    # tcp_check = 0
-    return TCPSeg(tcp_seq=tcp_seq,
-                  tcp_source=tcp_source,
-                  tcp_dest=tcp_dest,
-                  tcp_ack_seq=tcp_ack_seq,
-                  tcp_adwind=tcp_adwind,
-                  tcp_flags=tcp_flags, tcp_check=tcp_check, data=ip_data[tcp_header_size:])
+    tcp_header_buffer = ip_data[:tcp_header_size]
+    tcp_header_list = unpack('!HHLLBBHHH', tcp_header_buffer)
+    # Retrieve fields for TCP_Response object
+    tcp_src = tcp_header_list[0]
+    tcp_dst = tcp_header_list[1]
+    tcp_seq = tcp_header_list[2]
+    tcp_ack_seq = tcp_header_list[3]
+    tcp_data_offset = tcp_header_list[4] >> 4
+    # If contain some tcp options (5 is the minimum size of tcp header)
+    if tcp_data_offset > 5:
+        tcp_header_size += (tcp_data_offset - 5) * 4
+    # Get tcp_check
+    src_addr = socket.inet_aton(LOCAL_HOST)
+    dest_addr = socket.inet_aton(REMOTE_HOST)
+    placeholder = 0
+    protocol_from_ip = socket.IPPROTO_TCP
+    tcp_segment_length = len(ip_data)
+    pseudo_header = pack('!4s4sBBH', src_addr, dest_addr, placeholder, protocol_from_ip, tcp_segment_length)
+    pseudo_header = pseudo_header + ip_data
+    tcp_check = checksum(pseudo_header)
+
+    tcp_flag = tcp_header_list[5]
+    tcp_data = ip_data[tcp_header_size:]
+    # Return TCP_Response object
+    return TCP_Response(tcp_src, tcp_dst, tcp_seq, tcp_ack_seq, tcp_data_offset, tcp_check, tcp_flag, tcp_data)
+
+    # tcp_header_size = calcsize('!HHLLBBHHH')
+    # hdr_fields = unpack('!HHLLBBHHH', ip_data[:tcp_header_size])
+    # tcp_source = hdr_fields[0]
+    # tcp_dest = hdr_fields[1]
+    # tcp_seq = hdr_fields[2]
+    # tcp_ack_seq = hdr_fields[3]
+    # tcp_doff_resvd = hdr_fields[4]
+    # tcp_doff = tcp_doff_resvd >> 4  # get the data offset
+    # tcp_adwind = hdr_fields[6]
+    # tcp_urg_ptr = hdr_fields[7]
+    # # parse TCP flags
+    # tcp_flags = hdr_fields[5]
+    # # process the TCP options if there are
+    # # currently just skip it
+    # if tcp_doff > 5:
+    #     opts_size = (tcp_doff - 5) * 4
+    #     tcp_header_size += opts_size
+    # # get the TCP data
+    # data = ip_data[tcp_header_size:]
+    # # compute the checksum of the recv packet with psh
+    # tcp_check = _tcp_check(ip_data)
+    # # tcp_check = 0
+    # return TCPSeg(tcp_seq=tcp_seq,
+    #               tcp_source=tcp_source,
+    #               tcp_dest=tcp_dest,
+    #               tcp_ack_seq=tcp_ack_seq,
+    #               tcp_adwind=tcp_adwind,
+    #               tcp_flags=tcp_flags, tcp_check=tcp_check, data=ip_data[tcp_header_size:])
 
 
 def _tcp_check(payload):
@@ -425,29 +347,29 @@ def receive_tcp():
     #print tcp_sequence
     try:
         while True:
-            # print "in loop"
-            # received_packet = receive_socket.recv(MAX_SIZE)
-            # print "received packet"
-            # ip_src, ip_dst, ip_data, ip_checksum = get_ip_response(received_packet)
-            # #print ip_src, ip_dst, ip_data, ip_checksum
-            # if is_valid_ip_response(ip_src, ip_dst, ip_checksum):
-            #     print "valid ip"
-            #     received_tcp_response = get_tcp_response(ip_data)
-            #     if is_valid_tcp_response(received_tcp_response):
-            #         #print "valid tcp"
-            #         print "receieve tcp!!"
-            #         return received_tcp_response
+            #print "in loop"
+            received_packet = receive_socket.recv(MAX_SIZE)
+            #print "received packet"
+            ip_src, ip_dst, ip_data, ip_checksum = get_ip_response(received_packet)
+            #print ip_src, ip_dst, ip_data, ip_checksum
+            if is_valid_ip_response(ip_src, ip_dst, ip_checksum):
+                #print "valid ip"
+                received_tcp_response = get_tcp_response(ip_data)
+                if is_valid_tcp_response(received_tcp_response):
+                    #print "valid tcp"
+                    #print "receieve tcp!!"
+                    return received_tcp_response
 
-            data = receive_socket.recv(MAX_SIZE)
-            ip_datagram = get_ip_response(data)
-            if ip_datagram.ip_daddr != LOCAL_HOST or ip_datagram.ip_check != 0 or ip_datagram.ip_saddr != REMOTE_HOST:
-                continue
-
-            tcp_seg = get_tcp_response(ip_datagram.data)
-            #print tcp_seg.data
-            if tcp_seg.tcp_source != REMOTE_PORT or tcp_seg.tcp_dest != LOCAL_PORT or tcp_seg.tcp_check != 0:
-                continue
-            return tcp_seg
+            # data = receive_socket.recv(MAX_SIZE)
+            # ip_datagram = get_ip_response(data)
+            # if ip_datagram.ip_daddr != LOCAL_HOST or ip_datagram.ip_check != 0 or ip_datagram.ip_saddr != REMOTE_HOST:
+            #     continue
+            #
+            # tcp_seg = get_tcp_response(ip_datagram.data)
+            # #print tcp_seg.data
+            # if tcp_seg.tcp_source != REMOTE_PORT or tcp_seg.tcp_dest != LOCAL_PORT or tcp_seg.tcp_check != 0:
+            #     continue
+            # return tcp_seg
     except socket.timeout:
         print "Time out when getting packet"
         return None
@@ -455,17 +377,29 @@ def receive_tcp():
 #nho sua
 def acked():
     global tcp_sequence, tcp_ack_sequence
-    start_time = time.time()
-    while time.time() - start_time < 60:
-        tcp_seg = receive_tcp()
-        if not tcp_seg:
-            break
-        if tcp_seg.tcp_flags & FLAGS['ACK'] and tcp_seg.tcp_ack_seq >= tcp_sequence + 1:
-            tcp_sequence = tcp_seg.tcp_ack_seq
-            tcp_ack_sequence = tcp_seg.tcp_seq + 1
+    current_time = time.time()
+    # print tcp_sequence
+    while time.time() - current_time < 10:
+        received_tcp = receive_tcp()
+        if filter_tcp_response(received_tcp):
+            # print "acked"
+            tcp_sequence = received_tcp.tcp_ack_sequence
+            tcp_ack_sequence = received_tcp.tcp_sequence + 1
             return True
 
     return False
+    # global tcp_sequence, tcp_ack_sequence
+    # start_time = time.time()
+    # while time.time() - start_time < 60:
+    #     tcp_seg = receive_tcp()
+    #     if not tcp_seg:
+    #         break
+    #     if tcp_seg.tcp_flags & FLAGS['ACK'] and tcp_seg.tcp_ack_seq >= tcp_sequence + 1:
+    #         tcp_sequence = tcp_seg.tcp_ack_seq
+    #         tcp_ack_sequence = tcp_seg.tcp_seq + 1
+    #         return True
+    #
+    # return False
 
 # TODO: https://accedian.com/blog/diagnose-tcp-connection-setup-issues/
 #Three-way handshake
@@ -474,7 +408,6 @@ def established_connection(src_addr, dst_addr):
     global tcp_sequence
     tcp_sequence = randint(0, (2 << 31) - 1)
     syn_packet = create_packet('', FLAGS['SYN'])
-    #print syn_packet
     send_socket.sendto(syn_packet, (REMOTE_HOST, REMOTE_PORT))
 
     if not acked():
@@ -497,7 +430,7 @@ def closed_connection():
     while time.time() - current_time < 30:
         send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
         tcp_response = receive_tcp()
-        flag = tcp_response.tcp_flags
+        flag = tcp_response.tcp_flag
         if flag & FLAGS['FIN']:
             send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
             send_socket.close()
@@ -520,11 +453,11 @@ def received():
         if not received_tcp:
             print "Not received any packet"
             return False
-        received_tcp_flags = received_tcp.tcp_flags
-        received_tcp_ack_sequence = received_tcp.tcp_ack_seq
+        received_tcp_flags = received_tcp.tcp_flag
+        received_tcp_ack_sequence = received_tcp.tcp_ack_sequence
         if received_tcp_flags & FLAGS['ACK'] and received_tcp_ack_sequence >= tcp_sequence + len(send_buffer):
-            tcp_sequence = received_tcp.tcp_ack_seq
-            tcp_ack_sequence = received_tcp.tcp_seq
+            tcp_sequence = received_tcp.tcp_ack_sequence
+            tcp_ack_sequence = received_tcp.tcp_sequence
             return True
 
     return False
@@ -559,9 +492,9 @@ def receive():
             sys.exit(1)
         #rint "receiving packets ..."
         #print "here"
-        packet_flags = packet.tcp_flags
-        packet_tcp_sequence = packet.tcp_seq
-        packet_data = packet.data
+        packet_flags = packet.tcp_flag
+        packet_tcp_sequence = packet.tcp_sequence
+        packet_data = packet.tcp_data
         #print "packet_flags ", packet_flags
         #print "sequence ", packet_tcp_sequence
         #print "data: ", packet_data
@@ -581,14 +514,13 @@ def receive():
             else:
                 ack_packet = create_packet('', FLAGS['ACK'])
                 send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
-                #print "send back ack ..."
 
     print "Received data"
     return received_packets
 
 
 def is_valid(data):
-    print data
+    #print data
     try:
         position = data.index("\r\n\r\n") + 4
     except:
@@ -634,7 +566,6 @@ def run(url):
     if established_connection(LOCAL_HOST, REMOTE_HOST):
         request = "GET " + path + " HTTP/1.0\r\n" + "Host: " + host + "\r\n\r\n"
         buffer_length = len(request)
-        #print "request", request
         send_buffer = request
         packet = create_packet(request, FLAGS['PSH_ACK'])
 

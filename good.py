@@ -79,20 +79,7 @@ def checksum(message):
     _sum = ~_sum & 0xffff
     return _sum
 
-    # s = 0
-    # for i in range(0, len(message), 2):
-    #     if i + 1 <= len(message) - 1:
-    #         w = ord(message[i]) + (ord(message[i + 1]) << 8)
-    #     else:
-    #         w = ord(message[i])
-    #
-    #     s = s + w
-    #
-    # s = (s >> 16) + (s & 0xffff)
-    # s = s + (s >> 16)
-    # s = ~s & 0xffff
-    #
-    # return s
+
 
 #https://www.delftstack.com/howto/python/get-ip-address-python/
 def extract_addr(host):
