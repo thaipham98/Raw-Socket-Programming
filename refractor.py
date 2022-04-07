@@ -7,7 +7,7 @@ from random import randint
 from struct import pack, unpack, calcsize
 
 REMOTE_PORT = 80
-LOCAL_PORT = randint(1001, 65535)
+LOCAL_PORT = 1234
 LOCAL_HOST = ''
 REMOTE_HOST = ''
 
@@ -15,7 +15,6 @@ REMOTE_HOST = ''
 FLAGS = {'SYN': 2, 'ACK': 16, 'PSH_ACK': 24, 'FIN': 1, 'FIN_ACK': 17}
 # https://www.ibm.com/docs/en/zos/2.3.0?topic=concepts-introducing-tcpip-selecting-sockets
 MAX_SIZE = 65535
-
 send_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
 receive_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
 tcp_sequence = 0
@@ -23,7 +22,7 @@ tcp_ack_sequence = 0
 data_length = 0
 
 
-# TODO: Close connection
+
 # https://cs.stackexchange.com/questions/76393/tcp-connection-termination-fin-fin-ack-ack
 # https://accedian.com/blog/close-tcp-sessions-diagnose-disconnections/#:~:text=The%20standard%20way%20to%20close,response%20from%20the%20other%20party.&text=B%20can%20now%20send%20a,acknowledgement%20(Last%20Ack%20wait).
 # https://wiki.wireshark.org/TCP-4-times-close.md
@@ -156,7 +155,7 @@ def filter_tcp_response(received_tcp_response):
     return True
 
 
-# TODO: done
+
 # https://www.cs.miami.edu/home/burt/learning/Csc524.092/notes/ip_example.html
 def get_ip_response(received_packet):
     # Get IP header list
@@ -183,7 +182,6 @@ def get_ip_response(received_packet):
     return ip_src, ip_dst, ip_data, ip_check_sum
 
 
-# TODO
 # https://www.quora.com/What-is-TCP-checksum
 # https://www.oreilly.com/library/view/internet-core-protocols/1565925726/re69.html
 # https://en.wikipedia.org/wiki/Transmission_Control_Protocol
@@ -215,21 +213,6 @@ def get_tcp_response(ip_data):
     tcp_data = ip_data[tcp_header_size:]
     # Return TCP_Response object
     return TCP_Response(tcp_src, tcp_dst, tcp_seq, tcp_ack_seq, tcp_data_offset, tcp_check, tcp_flag, tcp_data)
-
-
-def _tcp_check(payload):
-    # pseudo header fields
-    source_address = socket.inet_aton(LOCAL_HOST)
-    dest_address = socket.inet_aton(REMOTE_HOST)
-    placeholder = 0
-    protocol = socket.IPPROTO_TCP
-    tcp_length = len(payload)
-
-    psh = pack('!4s4sBBH', source_address, dest_address,
-               placeholder, protocol, tcp_length)
-    psh = psh + payload
-
-    return checksum(psh)
 
 
 def is_valid_tcp_response(received_tcp_response):
@@ -283,17 +266,16 @@ def established_connection():
 
     ack_packet = create_packet('', FLAGS['ACK'])
     send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
-    print "Done 3way handshake!"
+    print "Done three-way handshake!"
     return True
 
 
 def closed_connection():
     fin_ack_packet = create_packet('', FLAGS['FIN_ACK'])
-
     current_time = time.time()
 
-    # Time out after 60s for closing connection
-    while time.time() - current_time < 30:
+    # Time out after 10s for closing connection
+    while time.time() - current_time < 10:
         send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
         tcp_response = receive_tcp()
         flag = tcp_response.tcp_flag
@@ -302,14 +284,14 @@ def closed_connection():
             send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
             send_socket.close()
             receive_socket.close()
-            print "Connection is closed"
+            print "Connection is closed!"
             return True
 
     print "Closing connection failed!"
     return False
 
 
-# fuck
+
 # https://stackoverflow.com/questions/15182106/what-is-the-reason-and-how-to-avoid-the-fin-ack-rst-and-rst-ack
 def received():
     global tcp_sequence, tcp_ack_sequence
@@ -341,7 +323,7 @@ def send(packet):
                 sys.exit(1)
             sys.exit(0)
         send_socket.sendto(packet, (REMOTE_HOST, REMOTE_PORT))
-    print "Sent data"
+    print "Sent request"
 
 
 def receive():
@@ -352,8 +334,8 @@ def receive():
         packet = receive_tcp()
         if not packet:
             print "Cannot connect to the server"
-            # if not closed_connection():
-            #     sys.exit(1)
+            if not closed_connection():
+                sys.exit(1)
             sys.exit(1)
         packet_flags = packet.tcp_flag
         packet_tcp_sequence = packet.tcp_sequence
@@ -363,8 +345,8 @@ def receive():
             received_packets[packet_tcp_sequence] = packet_data
             tcp_ack_sequence = packet_tcp_sequence + len(packet_data)
             if packet_flags & FLAGS['FIN']:
-                print "Finish!"
-                return received_packets
+                print "Finish receiving data!"
+                #return received_packets
                 tcp_ack_sequence += 1
                 if not closed_connection():
                     sys.exit(1)
@@ -381,7 +363,7 @@ def is_valid(data):
     try:
         position = data.index("\r\n\r\n") + 4
     except:
-        print "Invalid received"
+        print "Invalid received data. Please try again!"
         return False, None
 
     header = data[:position]
@@ -399,7 +381,7 @@ def export_file(path, body):
         file_name = path.split('/')[-1]
     with open(file_name, "w+") as f:
         f.write(body)
-        print "Successfully exported file!"
+    print "Successfully exported file:", file_name
 
 
 def process_data(packets):
@@ -433,8 +415,8 @@ def run(url):
         export_file(path, body)
     else:
         print "Failed to establish connection!"
-        # send_socket.close()
-        # receive_socket.close()
+        send_socket.close()
+        receive_socket.close()
         sys.exit(1)
 
 
