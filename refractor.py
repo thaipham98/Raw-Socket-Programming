@@ -20,7 +20,7 @@ TCPSeg = namedtuple(
     'TCPSeg', 'tcp_source tcp_dest tcp_seq tcp_ack_seq tcp_check data tcp_flags tcp_adwind')
 
 # Flags
-FLAGS = {'SYN': 0 + (1 << 1) + (0 << 2) + (0 << 3) + (0 << 4) + (0 << 5), 'ACK': 0 + (0 << 1) + (0 << 2) + (0 << 3) + (1 << 4) + (0 << 5), 'PSH_ACK': 0 + (0 << 1) + (0 << 2) + (1 << 3) + (1 << 4) + (0 << 5), 'FIN': 1 + (0 << 1) + (0 << 2) + (0 << 3) + (0 << 4) + (0 << 5), 'FIN_ACK': 1 + (0 << 1) + (0 << 2) + (0 << 3) + (1 << 4) + (0 << 5)}
+FLAGS = {'SYN': 2, 'ACK': 16, 'PSH_ACK': 24, 'FIN': 1, 'FIN_ACK': 17}
 # https://www.ibm.com/docs/en/zos/2.3.0?topic=concepts-introducing-tcpip-selecting-sockets
 MAX_SIZE = 65535
 
@@ -105,81 +105,123 @@ def extract_addr(host):
 
 # get from the tutorial
 # TODO: REFACTOR TO AVOID PLAGIARISM
-def create_tcp_header(src_addr, dst_addr, data, flags):
+def create_tcp_header(data, flags):
+    # global tcp_sequence, tcp_ack_sequence
+    # tcp_source = LOCAL_PORT  # source port
+    # tcp_dest = REMOTE_PORT  # destination port
+    # tcp_seq = tcp_sequence
+    # tcp_ack_seq = tcp_ack_sequence
+    # #print "tcp_ack_seq in tcp", tcp_ack_sequence
+    # tcp_doff = 5  # 4 bit field, size of tcp header, 5 * 4 = 20 bytes
+    # tcp_window = 2048  # maximum allowed window size
+    # tcp_check = 0
+    # tcp_urg_ptr = 0
+    #
+    # tcp_offset_res = (tcp_doff << 4) + 0
+    # tcp_flags = flags
+    #
+    # # the ! in the pack format string means network order
+    # #try:
+    # tcp_header = pack('!HHLLBBHHH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags, tcp_window, tcp_check, tcp_urg_ptr)
+    # #except:
+    #  #   print tcp_check, tcp_urg_ptr
+    #   #  sys.exit(1)
+    # source_address = socket.inet_aton(src_addr)
+    # dest_address = socket.inet_aton(dst_addr)
+    # placeholder = 0
+    # protocol = socket.IPPROTO_TCP
+    #
+    # if len(data) % 2 != 0:
+    #     data += ' '
+    # tcp_length = len(tcp_header) + len(data)
+    #
+    # psh = pack('!4s4sBBH', source_address, dest_address, placeholder, protocol, tcp_length)
+    # psh = psh + tcp_header + data
+    #
+    # #print data
+    # tcp_check = checksum(psh)
+    # # print tcp_checksum
+    #
+    # # make the tcp header again and fill the correct checksum - remember checksum is NOT in network byte order
+    # tcp_header = pack('!HHLLBBH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags,
+    #                   tcp_window) + pack('H', tcp_check) + pack('!H', tcp_urg_ptr)
 
+    global tcp_sequence, tcp_ack_sequence
     tcp_source = LOCAL_PORT  # source port
     tcp_dest = REMOTE_PORT  # destination port
     tcp_seq = tcp_sequence
     tcp_ack_seq = tcp_ack_sequence
+    # print "tcp_ack_seq in tcp", tcp_ack_sequence
     tcp_doff = 5  # 4 bit field, size of tcp header, 5 * 4 = 20 bytes
-    tcp_window = 2048  # maximum allowed window size
+    tcp_window = socket.htons(2048)  # maximum allowed window size
     tcp_check = 0
     tcp_urg_ptr = 0
+
     tcp_offset_res = (tcp_doff << 4) + 0
     tcp_flags = flags
 
-    tcp_header = pack('!HHLLBBHHH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags, tcp_window, tcp_check, tcp_urg_ptr)
+    # the ! in the pack format string means network order
 
-    # pseudo header fields
+    tcp_header = pack('!HHLLBBHHH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags,
+                      tcp_window, tcp_check, tcp_urg_ptr)
+
     source_address = socket.inet_aton(LOCAL_HOST)
     dest_address = socket.inet_aton(REMOTE_HOST)
     placeholder = 0
     protocol = socket.IPPROTO_TCP
-    # if len(data) % 2 != 0:
-    #     data += ' '
     tcp_length = len(tcp_header) + len(data)
 
-    psh = pack('!4s4sBBH', source_address, dest_address, placeholder,
-                      protocol, tcp_length)
+    psh = pack('!4s4sBBH', source_address, dest_address, placeholder, protocol, tcp_length)
     psh = psh + tcp_header + data
 
-    tcp_check = checksum(psh)
-    tcp_header = pack('!HHLLBBHHH'[:-2], tcp_source, tcp_dest,
-                             tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags, tcp_window) + \
-                 pack('H', tcp_check) + pack('!H', tcp_urg_ptr)
 
-    return tcp_header + data
+    tcp_check = checksum(psh)
+
+    # make the tcp header again and fill the correct checksum - remember checksum is NOT in network byte order
+    tcp_header = pack('!HHLLBBH', tcp_source, tcp_dest, tcp_seq, tcp_ack_seq, tcp_offset_res, tcp_flags,
+                      tcp_window) + pack('H', tcp_check) + pack('!H', tcp_urg_ptr)
+    return tcp_header
 
 # get from tutorial,
 # TODO: REFACTOR TO AVOID PLAGIARISM
-def create_ip_header(src_addr, dst_addr, data):
-    # ip_ihl = 5
-    # ip_ver = 4
-    # ip_tos = 0
-    # ip_tot_len = 20 + len(data)  # kernel will fill the correct total length
-    # #ip_id = 54321  # Id of this packet
-    # ip_id = randint(0, 65535)
-    # ip_frag_off = 0
-    # ip_ttl = 255
-    # ip_proto = socket.IPPROTO_TCP
-    # ip_check = 0  # kernel will fill the correct checksum
-    # ip_saddr = socket.inet_aton(src_addr)  # Spoof the source ip address if you want to
-    # ip_daddr = socket.inet_aton(dst_addr)
-    #
-    # ip_ihl_ver = (ip_ver << 4) + ip_ihl
-    #
-    # # the ! in the pack format string means network order
-    # ip_header = pack('!BBHHHBBH4s4s', ip_ihl_ver, ip_tos, ip_tot_len, ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check,
-    #                  ip_saddr, ip_daddr)
+def create_ip_header(data):
+    ip_ihl = 5
+    ip_ver = 4
     ip_tos = 0
-    ip_tot_len = 0
+    ip_tot_len = 20 + len(data)  # kernel will fill the correct total length
+    #ip_id = 54321  # Id of this packet
     ip_id = randint(0, 65535)
     ip_frag_off = 0
     ip_ttl = 255
     ip_proto = socket.IPPROTO_TCP
-    ip_check = 0
-    ip_saddr = socket.inet_aton(LOCAL_HOST)
+    ip_check = 0  # kernel will fill the correct checksum
+    ip_saddr = socket.inet_aton(LOCAL_HOST)  # Spoof the source ip address if you want to
     ip_daddr = socket.inet_aton(REMOTE_HOST)
 
-    ip_ihl_ver = (4 << 4) + 5
-    ip_header = pack('!BBHHHBBH4s4s', ip_ihl_ver, ip_tos, ip_tot_len,
-                            ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check, ip_saddr, ip_daddr)
-    ip_check = checksum(ip_header)
+    ip_ihl_ver = (ip_ver << 4) + ip_ihl
 
-    ip_header = pack('!BBHHHBBH4s4s', ip_ihl_ver, ip_tos, ip_tot_len,
-                            ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check, ip_saddr, ip_daddr)
+    # the ! in the pack format string means network order
+    ip_header = pack('!BBHHHBBH4s4s', ip_ihl_ver, ip_tos, ip_tot_len, ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check,
+                     ip_saddr, ip_daddr)
+    # ip_tos = 0
+    # ip_tot_len = 20 + len(data)
+    # ip_id = randint(0, 65535)
+    # ip_frag_off = 0
+    # ip_ttl = 255
+    # ip_proto = socket.IPPROTO_TCP
+    # ip_check = 0
+    # ip_saddr = socket.inet_aton(LOCAL_HOST)
+    # ip_daddr = socket.inet_aton(REMOTE_HOST)
+    #
+    # ip_ihl_ver = (4 << 4) + 5
+    # ip_header = pack('!BBHHHBBH4s4s', ip_ihl_ver, ip_tos, ip_tot_len,
+    #                         ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check, ip_saddr, ip_daddr)
+    # ip_check = checksum(ip_header)
+    #
+    # ip_header = pack('!BBHHHBBH4s4s', ip_ihl_ver, ip_tos, ip_tot_len,
+    #                         ip_id, ip_frag_off, ip_ttl, ip_proto, ip_check, ip_saddr, ip_daddr)
 
-    return ip_header + data
+    return ip_header
 
 
 def extract_url(url):
@@ -194,11 +236,11 @@ def extract_url(url):
     return host, path
 
 
-def create_packet(src_addr, dst_addr, data, flags):
-    tcp_header = create_tcp_header(src_addr, dst_addr, data, flags)
+def create_packet(data, flags):
+    tcp_header = create_tcp_header(data, flags)
     #unpack_tcp = get_tcp_response()
-    ip_header = create_ip_header(src_addr, dst_addr, tcp_header)
-    return ip_header
+    ip_header = create_ip_header(tcp_header)
+    return ip_header + tcp_header + data
 
 
 def filter_tcp_response(received_tcp_response):
@@ -431,7 +473,7 @@ def established_connection(src_addr, dst_addr):
     #print REMOTE_HOST, REMOTE_PORT
     global tcp_sequence
     tcp_sequence = randint(0, (2 << 31) - 1)
-    syn_packet = create_packet(src_addr, dst_addr, '', FLAGS['SYN'])
+    syn_packet = create_packet('', FLAGS['SYN'])
     #print syn_packet
     send_socket.sendto(syn_packet, (REMOTE_HOST, REMOTE_PORT))
 
@@ -440,14 +482,14 @@ def established_connection(src_addr, dst_addr):
         return False
 
 
-    ack_packet = create_packet(src_addr, dst_addr, '', FLAGS['ACK'])
+    ack_packet = create_packet('', FLAGS['ACK'])
     send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
     print "Done 3way handshake!"
     return True
 
 def closed_connection():
-    fin_ack_packet = create_packet(LOCAL_HOST, REMOTE_HOST, '', FLAGS['FIN_ACK'])
-    ack_packet = create_packet(LOCAL_HOST, REMOTE_HOST, '', FLAGS['ACK'])
+    fin_ack_packet = create_packet('', FLAGS['FIN_ACK'])
+    ack_packet = create_packet('', FLAGS['ACK'])
 
     current_time = time.time()
 
@@ -537,7 +579,7 @@ def receive():
                     sys.exit(1)
                 break
             else:
-                ack_packet = create_packet(LOCAL_HOST, REMOTE_HOST, '', FLAGS['ACK'])
+                ack_packet = create_packet('', FLAGS['ACK'])
                 send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
                 #print "send back ack ..."
 
@@ -594,7 +636,7 @@ def run(url):
         buffer_length = len(request)
         #print "request", request
         send_buffer = request
-        packet = create_packet(LOCAL_HOST, REMOTE_HOST, request, FLAGS['PSH_ACK'])
+        packet = create_packet(request, FLAGS['PSH_ACK'])
 
 
         send(packet)
