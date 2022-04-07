@@ -7,8 +7,8 @@ from random import randint
 from struct import pack, unpack, calcsize
 
 REMOTE_PORT = 80
-LOCAL_PORT = 1234
-LOCAL_HOST = randint(1001, 65535)
+LOCAL_PORT = randint(1001, 65535)
+LOCAL_HOST = ''
 REMOTE_HOST = ''
 
 # Flags
