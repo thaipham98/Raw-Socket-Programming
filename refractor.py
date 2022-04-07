@@ -258,11 +258,11 @@ def acked_close():
     global tcp_sequence, tcp_ack_sequence
 
     ack_tcp = receive_tcp()
-    ack_tcp = ack_tcp.tcp_flag
+    ack_flag = ack_tcp.tcp_flag
     fin_tcp = receive_tcp()
     fin_flag = fin_tcp.tcp_flag
 
-    if ack_tcp & FLAGS['ACK'] and fin_flag & FLAGS['FIN']:
+    if ack_flag & FLAGS['ACK'] and fin_flag & FLAGS['FIN']:
         return True
 
     return False
@@ -272,23 +272,33 @@ def closed_connection():
     #global send_socket, receive_socket
     fin_ack_packet = create_packet('', FLAGS['FIN_ACK'])
     send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
+    if acked():
+        tcp_response = receive_tcp()
+        if tcp_response.tcp_flag & FLAGS['FIN']:
+            ack_packet = create_packet('', FLAGS['ACK'])
+            send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+            send_socket.close()
+            receive_socket.close()
+            print "Connection closed!"
+            return True
 
-    if acked_close():
-        # tcp_response = receive_tcp()
-        # flag = tcp_response.tcp_flag
-        # if flag & FLAGS['FIN']:
-        #     ack_packet = create_packet('', FLAGS['ACK'])
-        #     send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
-        #     send_socket.close()
-        #     receive_socket.close()
-        #     print "Connection is closed!"
-        #     return True
-        ack_packet = create_packet('', FLAGS['ACK'])
-        send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
-        send_socket.close()
-        receive_socket.close()
-        print "Connection closed!"
-        return True
+
+    # if acked_close():
+    #     # tcp_response = receive_tcp()
+    #     # flag = tcp_response.tcp_flag
+    #     # if flag & FLAGS['FIN']:
+    #     #     ack_packet = create_packet('', FLAGS['ACK'])
+    #     #     send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+    #     #     send_socket.close()
+    #     #     receive_socket.close()
+    #     #     print "Connection is closed!"
+    #     #     return True
+    #     ack_packet = create_packet('', FLAGS['ACK'])
+    #     send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
+    #     send_socket.close()
+    #     receive_socket.close()
+    #     print "Connection closed!"
+    #     return True
 
     print "Closing connection failed!"
     return False
