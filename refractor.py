@@ -257,11 +257,12 @@ def established_connection():
 def acked_close():
     global tcp_sequence, tcp_ack_sequence
 
-    fin_tcp = receive_tcp()
-    fin_flag = fin_tcp.tcp_flag
     ack_tcp = receive_tcp()
     ack_tcp = ack_tcp.tcp_flag
-    if fin_flag & FLAGS['FIN'] and ack_tcp & FLAGS['ACK']:
+    fin_tcp = receive_tcp()
+    fin_flag = fin_tcp.tcp_flag
+
+    if ack_tcp & FLAGS['ACK'] and fin_flag & FLAGS['FIN']:
         return True
 
     return False
@@ -272,7 +273,7 @@ def closed_connection():
     fin_ack_packet = create_packet('', FLAGS['FIN_ACK'])
     send_socket.sendto(fin_ack_packet, (REMOTE_HOST, REMOTE_PORT))
 
-    if acked():
+    if acked_close():
         # tcp_response = receive_tcp()
         # flag = tcp_response.tcp_flag
         # if flag & FLAGS['FIN']:
@@ -348,7 +349,7 @@ def receive():
             tcp_ack_sequence = packet_tcp_sequence + len(packet_data)
             if packet_flags & FLAGS['FIN']:
                 print "Finish receiving data!"
-                return received_packets
+                #return received_packets
                 tcp_ack_sequence += 1
                 if not closed_connection():
                     sys.exit(1)
@@ -357,7 +358,6 @@ def receive():
                 ack_packet = create_packet('', FLAGS['ACK'])
                 send_socket.sendto(ack_packet, (REMOTE_HOST, REMOTE_PORT))
 
-    print "Received data"
     return received_packets
 
 
